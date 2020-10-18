@@ -10,7 +10,7 @@ module TypeSet where
 import Data.Proxy (Proxy(Proxy),asProxyTypeOf)
 import Numeric.Natural (Natural)
 import Data.Void (Void)
-import Data.Bits (testBit, setBit, zeroBits, Bits(bitSizeMaybe), FiniteBits(finiteBitSize))
+import Data.Bits (testBit, setBit, clearBit, zeroBits, Bits(bitSizeMaybe), FiniteBits(finiteBitSize))
 import Data.Foldable (foldl')
 import Data.List (tails, foldl1')
 import Data.Maybe (catMaybes)
@@ -153,25 +153,28 @@ instance Countable Integer where
                      (x, 1) -> -1-x
   fromNatural = Just . fromNatural'
   upperBound Proxy = Nothing
-newtype FB a = FB {getFB :: a}
-instance {-# OVERLAPPABLE #-} FiniteBits b => Finite (FB b) where
+newtype MkBits a = MkBits {getBits :: a}
+instance {-# OVERLAPPABLE #-} FiniteBits b => Finite (MkBits b) where
   upperBound' Proxy = (2^) . fromIntegral $ finiteBitSize (undefined :: b)
-instance {-# OVERLAPPABLE #-} FiniteBits b => Countable (FB b) where
-  toNatural (FB x) = fromDigitsReverse 2 $ map (toNatural . testBit x) [0..(finiteBitSize x)-1]
-  fromNatural x | x >= upperBound' (Proxy :: Proxy (FB b)) = Nothing
-                | otherwise = Just . FB . foldl' setBit zeroBits . map fst . Prelude.filter ((==1) . snd) .
-                                  zip [0..(finiteBitSize (undefined :: b))-1] $ digitsReverse 2 x ++ repeat 0
-  upperBound = Just . upperBound'
+instance {-# OVERLAPPABLE #-} Bits b => Countable (MkBits b) where
+  toNatural = fromDigitsReverse 2 . map toNatural . popBits . getBits
+  fromNatural x | maybe False (x >=) $ upperBound (Proxy :: Proxy (MkBits b)) = Nothing
+                | otherwise = Just . MkBits . foldl' setBit zeroBits . map fst
+                                   . Prelude.filter ((==1) . snd) . zip [0..]
+                                   $ digitsReverse 2 x
+  upperBound Proxy = (2^) . fromIntegral <$> bitSizeMaybe (undefined :: b)
 -- haskell doesn't like this???
----- instance {-# OVERLAPPABLE #-} FiniteBits b => Finite b where
-----   upperBound' Proxy = (2^) . fromIntegral $ finiteBitSize (undefined :: b)
----- instance {-# OVERLAPPABLE #-} FiniteBits b => Countable b where
-----   toNatural x = fromDigitsReverse 2 $ map (toNatural . testBit x) [0..(finiteBitSize x)-1]
-----   fromNatural x | x >= upperBound' (Proxy :: Proxy b) = Nothing
-----                 | otherwise = Just . foldl' setBit zeroBits . map fst . Prelude.filter ((==1) . snd) .
-----                                   zip [0..(finiteBitSize (undefined :: b))-1] $ digitsReverse 2 x ++ repeat 0
-----   upperBound = Just . upperBound'
-instance (Finite a, Finite b) => Finite (Either a b)
+-- -- instance {-# OVERLAPPABLE #-} FiniteBits b => Finite b where
+-- --   upperBound' Proxy = (2^) . fromIntegral $ finiteBitSize (undefined :: b)
+-- -- instance {-# OVERLAPPABLE #-} Bits b => Countable bwhere
+-- --   toNatural = fromDigitsReverse 2 . map toNatural . popBits
+-- --   fromNatural x | maybe False (x >=) $ upperBound (Proxy :: Proxy b) = Nothing
+-- --                 | otherwise = Just . foldl' setBit zeroBits . map fst
+-- --                                    . Prelude.filter ((==1) . snd) . zip [0..]
+-- --                                    $ digitsReverse 2 x
+-- --   upperBound Proxy = (2^) . fromIntegral <$> bitSizeMaybe (undefined :: b)
+instance (Finite a, Finite b) => Finite (Either a b) where
+  upperBound' Proxy = upperBound' (Proxy :: Proxy b) + upperBound' (Proxy :: Proxy a)
 instance (Countable a, Countable b) => Countable (Either a b) where
   toNatural x = case (upperBound (Proxy :: Proxy a), upperBound (Proxy :: Proxy b), x) of
     (Just a, _, Left y) -> toNatural y
@@ -187,7 +190,8 @@ instance (Countable a, Countable b) => Countable (Either a b) where
                             (x, 1) -> Right <$> fromNatural x
   upperBound Proxy = liftA2 (+) (upperBound (Proxy :: Proxy a))
                                 (upperBound (Proxy :: Proxy b))
-instance (Finite a, Finite b) => Finite (a, b)
+instance (Finite a, Finite b) => Finite (a, b) where
+  upperBound' Proxy = upperBound' (Proxy :: Proxy b) * upperBound' (Proxy :: Proxy a)
 instance (Countable a, Countable b) => Countable (a, b) where
   toNatural (x, y) =
     let m = toNatural x
@@ -203,14 +207,15 @@ instance (Countable a, Countable b) => Countable (a, b) where
       (Nothing, Nothing) -> cantorUnpair x
   upperBound Proxy = liftA2 (*) (upperBound (Proxy :: Proxy a))
                                 (upperBound (Proxy :: Proxy b))
-instance (Finite a, Finite b) => Finite (a -> b)
+instance (Finite a, Finite b) => Finite (a -> b) where
+  upperBound' Proxy = upperBound' (Proxy :: Proxy b) ^ upperBound' (Proxy :: Proxy a)
 instance (Finite a, Countable b) => Countable (a -> b) where
-  toNatural f = case (upperBound (Proxy :: Proxy a), upperBound (Proxy :: Proxy b)) of
-                  (Just 0, _) -> 0
+  toNatural f = case (upperBound' (Proxy :: Proxy a), upperBound (Proxy :: Proxy b)) of
+                  (0, _) -> 0
                   (_, Just p) -> sum [p^n * toNatural (f a) | (n,a) <- enumerate]
                   (_, Nothing) -> snd . cantorZip' $ map (toNatural . f . snd) enumerate
   fromNatural x = 
-    let Just n = upperBound (Proxy :: Proxy a) in
+    let n = upperBound' (Proxy :: Proxy a) in
     case upperBound (Proxy :: Proxy b) of
       Nothing | n == 0 -> Just (\case)
               | otherwise -> 
@@ -246,6 +251,10 @@ fromDigitsReverse :: Integral a => a -> [a] -> a
 fromDigitsReverse p [] = 0
 fromDigitsReverse p (x:xs) = x + p*fromDigitsReverse p xs
 
+popBits :: Bits b => b -> [Bool]
+popBits = go 0
+  where go i x | x == zeroBits = []
+               | otherwise = testBit x i : go (i+1) (clearBit x i)
 
 {- snippet: haskell wiki -}
 (^!) :: Num a => a -> Int -> a
