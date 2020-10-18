@@ -10,7 +10,7 @@ module TypeSet where
 import Data.Proxy (Proxy(Proxy),asProxyTypeOf)
 import Numeric.Natural (Natural)
 import Data.Void (Void)
-import Data.Bits (Bits(bitSizeMaybe))
+import Data.Bits (testBit, setBit, zeroBits, Bits(bitSizeMaybe), FiniteBits(finiteBitSize))
 import Data.Foldable (foldl')
 import Data.List (tails, foldl1')
 import Data.Maybe (catMaybes)
@@ -33,7 +33,6 @@ instance TypeSet Bool where
 instance TypeSet Integer where
   cardinality Proxy = CardInf 0
 
--- import Data.Bits (FiniteBits(finiteBitSize))
 -- instance {-# OVERLAPPABLE #-} FiniteBits b => TypeSet b where
 --   cardinality = CardFin . (2^) . finiteBitSize . asProxyTypeOf undefined
 instance {-# OVERLAPPABLE #-} Bits b => TypeSet b where
@@ -154,7 +153,24 @@ instance Countable Integer where
                      (x, 1) -> -1-x
   fromNatural = Just . fromNatural'
   upperBound Proxy = Nothing
--- instance {-# OVERLAPPABLE #-} Bits b => Countable b where
+newtype FB a = FB {getFB :: a}
+instance {-# OVERLAPPABLE #-} FiniteBits b => Finite (FB b) where
+  upperBound' Proxy = (2^) . fromIntegral $ finiteBitSize (undefined :: b)
+instance {-# OVERLAPPABLE #-} FiniteBits b => Countable (FB b) where
+  toNatural (FB x) = fromDigitsReverse 2 $ map (toNatural . testBit x) [0..(finiteBitSize x)-1]
+  fromNatural x | x >= upperBound' (Proxy :: Proxy (FB b)) = Nothing
+                | otherwise = Just . FB . foldl' setBit zeroBits . map fst . Prelude.filter ((==1) . snd) .
+                                  zip [0..(finiteBitSize (undefined :: b))-1] $ digitsReverse 2 x ++ repeat 0
+  upperBound = Just . upperBound'
+-- haskell doesn't like this???
+---- instance {-# OVERLAPPABLE #-} FiniteBits b => Finite b where
+----   upperBound' Proxy = (2^) . fromIntegral $ finiteBitSize (undefined :: b)
+---- instance {-# OVERLAPPABLE #-} FiniteBits b => Countable b where
+----   toNatural x = fromDigitsReverse 2 $ map (toNatural . testBit x) [0..(finiteBitSize x)-1]
+----   fromNatural x | x >= upperBound' (Proxy :: Proxy b) = Nothing
+----                 | otherwise = Just . foldl' setBit zeroBits . map fst . Prelude.filter ((==1) . snd) .
+----                                   zip [0..(finiteBitSize (undefined :: b))-1] $ digitsReverse 2 x ++ repeat 0
+----   upperBound = Just . upperBound'
 instance (Finite a, Finite b) => Finite (Either a b)
 instance (Countable a, Countable b) => Countable (Either a b) where
   toNatural x = case (upperBound (Proxy :: Proxy a), upperBound (Proxy :: Proxy b), x) of
@@ -225,6 +241,11 @@ digits :: Integral a => a -> a -> [a]
 digits p = flip go []
   where go 0 = id
         go n = let (n',d) = divMod n p in go n' . (d :)
+
+fromDigitsReverse :: Integral a => a -> [a] -> a
+fromDigitsReverse p [] = 0
+fromDigitsReverse p (x:xs) = x + p*fromDigitsReverse p xs
+
 
 {- snippet: haskell wiki -}
 (^!) :: Num a => a -> Int -> a
