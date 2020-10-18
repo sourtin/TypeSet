@@ -10,7 +10,8 @@ module TypeSet where
 import Data.Proxy (Proxy(Proxy),asProxyTypeOf)
 import Numeric.Natural (Natural)
 import Data.Void (Void)
-import Data.Bits (testBit, setBit, clearBit, zeroBits, Bits(bitSizeMaybe), FiniteBits(finiteBitSize))
+import Data.Bits (Bits(bitSizeMaybe), FiniteBits(finiteBitSize))
+import qualified Data.Bits as B
 import Data.Foldable (foldl')
 import Data.List (tails, foldl1')
 import Data.Maybe (catMaybes)
@@ -153,26 +154,17 @@ instance Countable Integer where
                      (x, 1) -> -1-x
   fromNatural = Just . fromNatural'
   upperBound Proxy = Nothing
+
+-- haskell doesn't like when this isn't newtype'd...
 newtype MkBits a = MkBits {getBits :: a}
 instance {-# OVERLAPPABLE #-} FiniteBits b => Finite (MkBits b) where
   upperBound' Proxy = (2^) . fromIntegral $ finiteBitSize (undefined :: b)
 instance {-# OVERLAPPABLE #-} Bits b => Countable (MkBits b) where
-  toNatural = fromDigitsReverse 2 . map toNatural . popBits . getBits
+  toNatural = bitsToNatural . getBits
   fromNatural x | maybe False (x >=) $ upperBound (Proxy :: Proxy (MkBits b)) = Nothing
-                | otherwise = Just . MkBits . foldl' setBit zeroBits . map fst
-                                   . Prelude.filter ((==1) . snd) . zip [0..]
-                                   $ digitsReverse 2 x
+                | otherwise = Just . MkBits $ bitsFromNatural x
   upperBound Proxy = (2^) . fromIntegral <$> bitSizeMaybe (undefined :: b)
--- haskell doesn't like this???
--- -- instance {-# OVERLAPPABLE #-} FiniteBits b => Finite b where
--- --   upperBound' Proxy = (2^) . fromIntegral $ finiteBitSize (undefined :: b)
--- -- instance {-# OVERLAPPABLE #-} Bits b => Countable bwhere
--- --   toNatural = fromDigitsReverse 2 . map toNatural . popBits
--- --   fromNatural x | maybe False (x >=) $ upperBound (Proxy :: Proxy b) = Nothing
--- --                 | otherwise = Just . foldl' setBit zeroBits . map fst
--- --                                    . Prelude.filter ((==1) . snd) . zip [0..]
--- --                                    $ digitsReverse 2 x
--- --   upperBound Proxy = (2^) . fromIntegral <$> bitSizeMaybe (undefined :: b)
+
 instance (Finite a, Finite b) => Finite (Either a b) where
   upperBound' Proxy = upperBound' (Proxy :: Proxy b) + upperBound' (Proxy :: Proxy a)
 instance (Countable a, Countable b) => Countable (Either a b) where
@@ -253,8 +245,33 @@ fromDigitsReverse p (x:xs) = x + p*fromDigitsReverse p xs
 
 popBits :: Bits b => b -> [Bool]
 popBits = go 0
-  where go i x | x == zeroBits = []
-               | otherwise = testBit x i : go (i+1) (clearBit x i)
+  where go i x | x == B.zeroBits = []
+               | otherwise = B.testBit x i : go (i+1) (B.clearBit x i)
+
+bitsIsInfinite :: Bits b => b -> Bool
+bitsIsInfinite x = B.popCount x < 0 || B.popCount (B.complement x) < 0
+
+bitsIsNegative' :: Bits b => b -> Bool
+bitsIsNegative' = (<0) . B.popCount
+
+bitsToNatural :: Bits b => b -> Natural
+bitsToNatural x | bitsIsInfinite x = toNatural $ bitsToInteger' x
+                | otherwise        = fromDigitsReverse 2 . map (\case {False->0; True->1}) $ popBits x
+
+bitsToInteger' :: Bits b => b -> Integer
+bitsToInteger' x | bitsIsNegative' x = -1 - bitsToInteger' (B.complement x)
+                 | otherwise         = fromIntegral $ bitsToNatural x
+
+bitsFromNatural :: Bits b => Natural -> b
+bitsFromNatural x = let ifInf = bitsFromInteger' $ fromNatural' x
+                        ifFin = bitsFromInteger' $ fromIntegral x
+                    in if bitsIsInfinite ifInf then ifInf else ifFin
+
+bitsFromInteger' :: Bits b => Integer -> b
+bitsFromInteger' x | x < 0 = B.complement (bitsFromInteger' (-1 - x))
+                   | otherwise = foldl' B.setBit B.zeroBits . map fst
+                                     . Prelude.filter ((==1) . snd) . zip [0..]
+                                     $ digitsReverse 2 x
 
 {- snippet: haskell wiki -}
 (^!) :: Num a => a -> Int -> a
