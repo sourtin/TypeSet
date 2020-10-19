@@ -12,6 +12,7 @@ import Numeric.Natural (Natural)
 import Data.Void (Void)
 import Data.Bits (Bits(bitSizeMaybe), FiniteBits(finiteBitSize))
 import qualified Data.Bits as B
+import qualified Data.Word as W
 import Data.Foldable (foldl')
 import Data.List (tails, foldl1')
 import Data.Maybe (catMaybes)
@@ -36,8 +37,8 @@ instance TypeSet Integer where
 
 -- instance {-# OVERLAPPABLE #-} FiniteBits b => TypeSet b where
 --   cardinality = CardFin . (2^) . finiteBitSize . asProxyTypeOf undefined
-instance {-# OVERLAPPABLE #-} Bits b => TypeSet b where
-  cardinality = maybe (CardInf 0) (CardFin . (2^)) . bitSizeMaybe . asProxyTypeOf undefined
+-- instance {-# OVERLAPS #-} Bits b => TypeSet b where
+--   cardinality = maybe (CardInf 0) (CardFin . (2^)) . bitSizeMaybe . asProxyTypeOf undefined
 
 instance (TypeSet a, TypeSet b) => TypeSet (Either a b) where
   cardinality Proxy = case (cardinality (Proxy :: Proxy a), cardinality (Proxy :: Proxy b)) of
@@ -157,9 +158,9 @@ instance Countable Integer where
 
 -- haskell doesn't like when this isn't newtype'd...
 newtype MkBits a = MkBits {getBits :: a}
-instance {-# OVERLAPPABLE #-} FiniteBits b => Finite (MkBits b) where
+instance FiniteBits b => Finite (MkBits b) where
   upperBound' Proxy = (2^) . fromIntegral $ finiteBitSize (undefined :: b)
-instance {-# OVERLAPPABLE #-} Bits b => Countable (MkBits b) where
+instance Bits b => Countable (MkBits b) where
   toNatural = bitsToNatural . getBits
   fromNatural x | maybe False (x >=) $ upperBound (Proxy :: Proxy (MkBits b)) = Nothing
                 | otherwise = Just . MkBits $ bitsFromNatural x
@@ -316,3 +317,23 @@ cantorUnzip' n z = let (x, z') = cantorUnpair z in x : cantorUnzip' (n-1) z'
 cantorUnzip :: Natural -> [Natural]
 cantorUnzip 0 = []
 cantorUnzip n = uncurry cantorUnzip' . cantorUnpair $ pred n
+
+
+-- instance {-# OVERLAPPABLE #-} Countable a => TypeSet a where
+--   cardinality = maybe (CardInf 0) CardFin . upperBound
+
+-- bitset for fixed b
+newtype BitSet' univ b = BitSet' {getBitSet' :: b} deriving (Eq)
+
+-- opaque type (right approach ???)
+data BitSet u = BS8 (BitSet' u W.Word8)
+              | BS16 (BitSet' u W.Word16)
+              | BS32 (BitSet' u W.Word32)
+              | BS64 (BitSet' u W.Word64)
+              | BSBig (BitSet' u Natural)
+
+instance (Eq u, Countable u, TypeSet u, Bits b) => TypeSubset (BitSet' u b) u where
+  empty = BitSet' B.zeroBits
+  toList = map fst . Prelude.filter snd . zip (map snd enumerate) . popBits . getBitSet'
+  member x (BitSet' s) = B.testBit s (fromIntegral $ toNatural x)
+  null = (== empty)
