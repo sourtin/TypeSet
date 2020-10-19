@@ -1,10 +1,16 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE EmptyCase #-}
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE NoStarIsType #-}
 
 module TypeSet where
 import Data.Proxy (Proxy(Proxy),asProxyTypeOf)
@@ -20,6 +26,8 @@ import Data.Tuple (swap)
 import Control.Applicative (liftA2)
 import Control.Monad (liftM2)
 import qualified Data.Map.Strict as MS
+import GHC.TypeNats (Nat, type (^), type (+), type (*), type CmpNat)
+import GHC.TypeLits (TypeError, ErrorMessage(..))
 
 import TypeSet.Algorithm
 
@@ -46,6 +54,7 @@ bitsFromInteger' x | x < 0 = B.complement (bitsFromInteger' (-1 - x))
 data Cardinal = CardFin Natural | CardInf { bethIndex :: Natural } deriving Show
 
 class TypeSet a where
+  type Cardinality a :: Cardinal'
   cardinality :: Proxy a -> Cardinal
 
 class TypeSet a => Countable a where
@@ -110,6 +119,7 @@ class (Eq a, Eq s, Countable a) => TypeSubset s a | s -> a where
 
 
 instance TypeSet Void where
+  type Cardinality Void = CardFin' 0
   cardinality Proxy = CardFin 0
 instance Countable Void where
   toNatural = \case
@@ -117,6 +127,7 @@ instance Countable Void where
 instance Finite Void
 
 instance TypeSet () where
+  type Cardinality () = CardFin' 1
   cardinality Proxy = CardFin 1
 instance Countable () where
   toNatural () = 0
@@ -125,6 +136,7 @@ instance Countable () where
 instance Finite ()
 
 instance TypeSet Bool where
+  type Cardinality Bool = CardFin' 2
   cardinality Proxy = CardFin 2
 instance Countable Bool where
   toNatural False = 0
@@ -135,6 +147,7 @@ instance Countable Bool where
 instance Finite Bool
 
 instance TypeSet Natural where
+  type Cardinality Natural = CardInf' 0
   cardinality Proxy = CardInf 0
 instance Countable Natural where
   toNatural = id
@@ -142,6 +155,7 @@ instance Countable Natural where
   fromNatural' = id
 
 instance TypeSet Integer where
+  type Cardinality Integer = CardInf' 0
   cardinality Proxy = CardInf 0
 instance Countable Integer where
   toNatural x | x >= 0 = 2 * fromInteger x
@@ -164,6 +178,7 @@ instance Bits b => Countable (MkBits b) where
 instance FiniteBits b => Finite (MkBits b)
 
 instance (TypeSet a, TypeSet b) => TypeSet (Either a b) where
+  type Cardinality (Either a b) = CardAdd (Cardinality a) (Cardinality b)
   cardinality Proxy = case (cardinality (Proxy :: Proxy a), cardinality (Proxy :: Proxy b)) of
     (CardFin a, CardFin b) -> CardFin (a + b)
     (CardFin a, CardInf b) -> CardInf b
@@ -187,6 +202,7 @@ instance (Countable a, Countable b) => Countable (Either a b) where
 instance (Finite a, Finite b) => Finite (Either a b)
 
 instance (TypeSet a, TypeSet b) => TypeSet (a, b) where
+  type Cardinality (a, b) = CardMul (Cardinality a) (Cardinality b)
   cardinality Proxy = case (cardinality (Proxy :: Proxy a), cardinality (Proxy :: Proxy b)) of
     (CardFin a, CardFin b) -> CardFin (a * b)
     (CardFin a, CardInf b) -> CardInf b
@@ -208,6 +224,7 @@ instance (Countable a, Countable b) => Countable (a, b) where
 instance (Finite a, Finite b) => Finite (a, b)
 
 instance (TypeSet a, TypeSet b) => TypeSet (a -> b) where
+  type Cardinality (a -> b) = CardExp (Cardinality a) (Cardinality b)
   cardinality Proxy = case (cardinality (Proxy :: Proxy a), cardinality (Proxy :: Proxy b)) of
     (CardFin a, CardFin b) -> CardFin (b ^ a)
     (CardFin a, CardInf b) -> CardInf b
@@ -231,6 +248,7 @@ instance (Finite a, Countable b) => Countable (a -> b) where
 instance (Finite a, Finite b) => Finite (a -> b)
 
 instance TypeSet a => TypeSet [a] where
+  type Cardinality [a] = CardList (Cardinality a)
   cardinality Proxy = case cardinality (Proxy :: Proxy a) of
     CardFin _ -> CardInf 0
     x -> x
@@ -281,3 +299,72 @@ instance (Eq u, Finite u) => TypeSubset (u -> Bool) u where
   intersections fs x = all ($ x) fs
   filter = intersection
   build = id
+
+-- type family Injection a b
+-- type instance Injection Void Word8
+-- type instance Injection Void Word16
+-- type instance Injection Void Word32
+-- type instance Injection Void Word64
+-- type instance Injection a Word8 => Injection a Word16
+-- type instance Injection a Word16 => Injection a Word32
+-- type instance Injection a Word32 => Injection a Word64
+
+-- class Injection a b
+-- instance Injection Void W.Word8
+-- instance Injection Void W.Word16
+
+-- foo :: Injection a W.Word8 => Bool
+-- foo = True
+
+
+-- TODO -- use Cardinality of typesets to compare against 8 for word8, etc in order to determine whether using 
+data Cardinal' = CardFin' Nat | CardInf' Nat
+
+type family CardAdd a b where
+  CardAdd (CardFin' a) (CardFin' b) = CardFin' (a + b)
+  CardAdd (CardFin' a) (CardInf' b) = CardInf' b
+  CardAdd (CardInf' a) (CardFin' b) = CardInf' a
+  CardAdd (CardInf' a) (CardInf' b) = CardInf' (Max a b (CmpNat a b))
+
+type family CardMul a b where
+  CardMul (CardFin' a) (CardFin' b) = CardFin' (a * b)
+  CardMul (CardFin' a) (CardInf' b) = CardInf' b
+  CardMul (CardInf' a) (CardFin' b) = CardInf' a
+  CardMul (CardInf' a) (CardInf' b) = CardInf' (Max a b (CmpNat a b))
+
+type family CardExp a b where
+  CardExp (CardFin' a) (CardFin' b) = CardFin' (a ^ b)
+  CardExp (CardFin' a) (CardInf' b) = CardInf' b
+  CardExp (CardInf' a) (CardFin' b) = CardInf' (a + 1)
+  CardExp (CardInf' a) (CardInf' b) = CardInf' (Max (a + 1) b (CmpNat (a + 1) b))
+
+type family CardList a where
+  CardList (CardFin' 0) = CardFin' 1
+  CardList (CardFin' a) = CardInf' 0
+  CardList x = x
+
+type family Max (a :: Nat) (b :: Nat) (c :: Ordering) where
+  Max a b LT = b
+  Max a b EQ = a
+  Max a b GT = a
+
+type family CmpCard a b where
+  CmpCard (CardFin' a) (CardFin' b) = CmpNat a b
+  CmpCard (CardFin' a) (CardInf' b) = LT
+  CmpCard (CardInf' a) (CardFin' b) = GT
+  CmpCard (CardInf' a) (CardInf' b) = CmpNat a b
+
+type family ShowCardinality a where
+  ShowCardinality (CardFin' a) = ShowType a
+  ShowCardinality (CardInf' 0) = Text "Countably Infinite"
+  ShowCardinality (CardInf' 1) = Text "Continuum"
+  ShowCardinality (CardInf' b) = Text "Beth#" :<>: ShowType b
+
+type family CmpLTErr a (b :: Nat) c where
+  CmpLTErr _ _ LT = ()
+  CmpLTErr a b _  = TypeError (Text "Error: Cannot fit powerset of given type " :<>: ShowType a :<>: Text " (Cardinality: " :<>: ShowCardinality (Cardinality a) :<>: Text ") into bitset of width " :<>: ShowType b :<>: Text "!")
+
+type CanUseBitSet a (b :: Nat) = CmpLTErr a b (CmpCard (Cardinality a) (CardFin' b)) ~ ()
+
+foo :: CanUseBitSet a 8 => a -> Bool
+foo _ = True
