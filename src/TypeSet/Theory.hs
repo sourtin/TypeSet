@@ -26,7 +26,9 @@ import GHC.TypeLits (ErrorMessage(..))
 import TypeSet.Algorithm
 import TypeSet.Cardinality
 
-type BitSettable a (b :: Nat) = Injectable (Cardinality a) (CardFin' b) (Text "Error: Cannot fit powerset of given type " :<>: ShowType a :<>: Text " (Cardinality: " :<>: ShowCardinality (Cardinality a) :<>: Text ") into bitset of width " :<>: ShowType b :<>: Text "!")
+type family BitWidth a :: Cardinal'
+
+type BitSettable a b = Injectable (Cardinality a) (BitWidth b) (Text "Error: Cannot fit powerset of given type " :<>: ShowType a :<>: Text " (Cardinality: " :<>: ShowCardinality (Cardinality a) :<>: Text ") into bitset of type " :<>: ShowType b :<>: Text " and width " :<>: ShowType (BitWidth b) :<>: Text "!")
 
 class TypeSet a where
   type Cardinality a :: Cardinal'
@@ -57,6 +59,7 @@ instance Countable Void where
   fromNatural = const Nothing
 instance Finite Void
 
+type instance BitWidth () = CardFin' 0
 instance TypeSet () where
   type Cardinality () = CardFin' 1
   cardinality Proxy = CardFin 1
@@ -66,6 +69,7 @@ instance Countable () where
   fromNatural _ = Nothing
 instance Finite ()
 
+type instance BitWidth Bool = CardFin' 1
 instance TypeSet Bool where
   type Cardinality Bool = CardFin' 2
   cardinality Proxy = CardFin 2
@@ -77,6 +81,7 @@ instance Countable Bool where
   fromNatural _ = Nothing
 instance Finite Bool
 
+type instance BitWidth Natural = CardInf' 0
 instance TypeSet Natural where
   type Cardinality Natural = CardInf' 0
   cardinality Proxy = CardInf 0
@@ -85,6 +90,7 @@ instance Countable Natural where
   fromNatural = Just
   fromNatural' = id
 
+type instance BitWidth Integer = CardInf' 0
 instance TypeSet Integer where
   type Cardinality Integer = CardInf' 0
   cardinality Proxy = CardInf 0
@@ -180,6 +186,7 @@ instance Countable a => Countable [a] where
 
 ---
 
+type instance BitWidth W.Word8 = CardFin' 8
 instance TypeSet W.Word8 where
   type Cardinality W.Word8 = CardFin' (2^8)
   cardinality Proxy = CardFin (2^8)
@@ -189,6 +196,7 @@ instance Countable W.Word8 where
                 | otherwise = Nothing
 instance Finite W.Word8
 
+type instance BitWidth W.Word16 = CardFin' 16
 instance TypeSet W.Word16 where
   type Cardinality W.Word16 = CardFin' (2^16)
   cardinality Proxy = CardFin (2^16)
@@ -198,6 +206,7 @@ instance Countable W.Word16 where
                 | otherwise = Nothing
 instance Finite W.Word16
 
+type instance BitWidth W.Word32 = CardFin' 32
 instance TypeSet W.Word32 where
   type Cardinality W.Word32 = CardFin' (2^32)
   cardinality Proxy = CardFin (2^32)
@@ -207,6 +216,7 @@ instance Countable W.Word32 where
                 | otherwise = Nothing
 instance Finite W.Word32
 
+type instance BitWidth W.Word64 = CardFin' 64
 instance TypeSet W.Word64 where
   type Cardinality W.Word64 = CardFin' (2^64)
   cardinality Proxy = CardFin (2^64)
@@ -234,6 +244,7 @@ natToBounded x | x <= range = Just y
         y = fromIntegral (fromIntegral x + fromIntegral lb :: Integer)
         lb' = lb + ub + (y-y)
 
+type instance BitWidth I.Int8 = CardFin' 8
 instance TypeSet I.Int8 where
   type Cardinality I.Int8 = CardFin' (2^8)
   cardinality Proxy = CardFin (2^8)
@@ -242,6 +253,7 @@ instance Countable I.Int8 where
   fromNatural = natToBounded
 instance Finite I.Int8
 
+type instance BitWidth I.Int16 = CardFin' 16
 instance TypeSet I.Int16 where
   type Cardinality I.Int16 = CardFin' (2^16)
   cardinality Proxy = CardFin (2^16)
@@ -250,6 +262,7 @@ instance Countable I.Int16 where
   fromNatural = natToBounded
 instance Finite I.Int16
 
+type instance BitWidth I.Int32 = CardFin' 32
 instance TypeSet I.Int32 where
   type Cardinality I.Int32 = CardFin' (2^32)
   cardinality Proxy = CardFin (2^32)
@@ -258,6 +271,7 @@ instance Countable I.Int32 where
   fromNatural = natToBounded
 instance Finite I.Int32
 
+type instance BitWidth I.Int64 = CardFin' 64
 instance TypeSet I.Int64 where
   type Cardinality I.Int64 = CardFin' (2^64)
   cardinality Proxy = CardFin (2^64)
@@ -266,6 +280,7 @@ instance Countable I.Int64 where
   fromNatural = natToBounded
 instance Finite I.Int64
 
+type instance BitWidth Char = CardFin' 20
 instance TypeSet Char where
   type Cardinality Char = CardFin' 0x110000
   cardinality Proxy = CardFin 0x110000

@@ -1,15 +1,25 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE LambdaCase #-}
 
 module TypeSet where
+import Data.Proxy (Proxy(Proxy))
 import Numeric.Natural (Natural)
 import Data.Foldable (foldl')
+import Data.List (foldl1')
 import Control.Monad (liftM2)
+import qualified Data.Bits as B
+import qualified Data.Word as W
 
-import TypeSet.Theory (Countable(enumerate), Finite, BitSettable)
-import TypeSet.Algorithm (popBits)
+import TypeSet.Theory
+import TypeSet.Algorithm (popBits, whichBits)
 import TypeSet.Cardinality (Cardinal(..))
+
+foldl10' :: (a -> a -> a) -> a -> [a] -> a
+foldl10' f x0 [] = x0
+foldl10' f _ xs = foldl1' f xs
 
 class (Eq a, Eq s, Countable a) => TypeSubset s a | s -> a where
   empty :: s
@@ -23,14 +33,15 @@ class (Eq a, Eq s, Countable a) => TypeSubset s a | s -> a where
   size :: s -> Cardinal
   size' :: s -> Natural
   null :: s -> Bool
+  full :: s -> Bool
   isSubsetOf, isProperSubsetOf, disjoint :: s -> s -> Bool
-  union, difference, symmetricDifference, intersection :: s -> s -> s
+  union, intersection, difference, symmetricDifference :: s -> s -> s
   unions, intersections :: [s] -> s
   filter :: (a -> Bool) -> s -> s
   build :: (a -> Bool) -> s
 
-  universe = fromList enumerate
   empty = fromList []
+  universe = fromList enumerate
   powerset = map build enumerate
   complement = difference universe
   singleton = fromList . pure
@@ -38,18 +49,19 @@ class (Eq a, Eq s, Countable a) => TypeSubset s a | s -> a where
   member x = elem x . toList
   size = CardFin . size'
   size' = fromIntegral . length . toList
-  null = (== CardFin 0) . size
+  null = (== empty)
+  full = (== universe)
   isSubsetOf a b = b == union a b
   isProperSubsetOf a b = a /= b && isSubsetOf a b
   disjoint a b = TypeSet.null (union a b)
   union a b = fromList (toList a ++ toList b)
+  intersection a b = complement (complement a `union` complement b)
   difference a b = a `intersection` complement b
   symmetricDifference a b = (a `difference` b) `union` (b `difference` a)
-  intersection a b = complement (complement a `union` complement b)
-  unions = foldl' union empty
-  intersections = complement . unions . map complement
-  filter p = fromList . Prelude.filter p . toList
-  build = flip TypeSet.filter universe
+  unions = foldl10' union empty
+  intersections = foldl10' intersection universe
+  filter = intersection . build
+  build p = fromList . map fst . Prelude.filter snd $ map (\x -> (x, p x)) enumerate
 
 instance (Finite u, Eq v) => Eq (u -> v) where
   f == g = and $ zipWith (==) (map f enumerate) (map g enumerate)
@@ -62,16 +74,41 @@ instance (Eq u, Finite u) => TypeSubset (u -> Bool) u where
   singleton = (==)
   fromList = flip elem
   toList = flip Prelude.filter enumerate
+  null = flip all enumerate . (not .)
+  full = flip all enumerate
   member = flip ($)
   union = liftM2 (||)
   intersection = liftM2 (&&)
   difference f g x = f x && not (g x)
+  symmetricDifference = liftM2 B.xor
   unions fs x = any ($ x) fs
   intersections fs x = all ($ x) fs
   filter = intersection
   build = id
 
 
+newtype BitSet b a = BitSet {getBitSet :: b}
+  deriving (Show, Eq, Ord)
 
-foo :: BitSettable a 8 => a -> Bool
-foo _ = True
+instance (Eq a, Countable a, Num b, Enum b, B.Bits b, BitSettable a b) => TypeSubset (BitSet b a) a where
+  empty = BitSet B.zeroBits
+  universe = complement empty
+  powerset = map BitSet [0..fromIntegral 2^ub-1]
+    where ub = case cardinality (Proxy :: Proxy a) of CardFin p -> p
+  complement (BitSet x) = case cardinality (Proxy :: Proxy a) of
+    CardFin p -> BitSet $ foldl' B.complementBit x [0..fromIntegral p-1]
+    CardInf 0 -> BitSet $ B.complement x
+  singleton = BitSet . B.setBit B.zeroBits . fromIntegral . toNatural
+  fromList = BitSet . foldl' B.setBit B.zeroBits . map (fromIntegral . toNatural)
+  toList = map (fromNatural' . fromIntegral) . whichBits . getBitSet
+  member = (. getBitSet) . flip B.testBit . fromIntegral . toNatural
+  size (BitSet s) = case B.popCount s of
+    n | n < 0 -> CardInf 0
+      | otherwise -> CardFin (fromIntegral n)
+  size' = fromIntegral . B.popCount . getBitSet
+  BitSet s `union` BitSet t = BitSet (s B..|. t)
+  BitSet s `intersection` BitSet t = BitSet (s B..&. t)
+  BitSet s `difference` BitSet t = BitSet . foldl' B.clearBit s $ whichBits t
+  BitSet s `symmetricDifference` BitSet t = BitSet (s `B.xor` t)
+  filter p (BitSet s) = BitSet . foldl' B.clearBit s . Prelude.filter (not . p . fromNatural' . fromIntegral) $ whichBits s
+  build = BitSet . foldl' B.setBit B.zeroBits . map fst . Prelude.filter snd . zip [0..] . flip map enumerate

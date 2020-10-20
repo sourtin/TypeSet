@@ -62,4 +62,8 @@ type family EqualOrFail (a :: k) (b :: k) (msg :: ErrorMessage) :: Constraint wh
   EqualOrFail a a _ = ()
   EqualOrFail _ _ m = TypeError m
 
-type Injectable a b msg = EqualOrFail (CmpCard a b) LT msg
+type family NotEqualOrFail (a :: k) (b :: k) (msg :: ErrorMessage) :: Constraint where
+  NotEqualOrFail a a m = TypeError m
+  NotEqualOrFail _ _ _ = ()
+
+type Injectable a b msg = NotEqualOrFail (CmpCard a b) GT msg

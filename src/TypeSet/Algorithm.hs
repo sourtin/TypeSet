@@ -40,6 +40,13 @@ popBits = go 0
   where go i x | x == B.zeroBits = []
                | otherwise = B.testBit x i : go (i+1) (B.clearBit x i)
 
+whichBits :: Bits b => b -> [Int]
+whichBits x = go 0 0
+  where c = B.popCount x
+        go n i | n == c = []
+        go n i | B.testBit x i = i : go (n+1) (i+1)
+               | otherwise = go n (i+1)
+
 bitsIsInfinite :: Bits b => b -> Bool
 bitsIsInfinite x = B.popCount x < 0 || B.popCount (B.complement x) < 0
 
