@@ -22,6 +22,9 @@ foldl10' :: (a -> a -> a) -> a -> [a] -> a
 foldl10' f x0 [] = x0
 foldl10' f _ xs = foldl1' f xs
 
+(\\) :: TypeSubset s a => s -> s -> s
+(\\) = difference
+
 class (Eq a, Eq s, Countable a) => TypeSubset s a | s -> a where
   empty :: s
   universe :: s
@@ -86,7 +89,6 @@ instance (Eq u, Finite u) => TypeSubset (u -> Bool) u where
   intersections fs x = all ($ x) fs
   filter = intersection
   build = id
-
 
 newtype BitSet b a = BitSet {getBitSet :: b}
   deriving (Show, Eq, Ord)
