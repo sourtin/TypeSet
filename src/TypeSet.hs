@@ -12,6 +12,7 @@ import Data.List (foldl1')
 import Control.Monad (liftM2)
 import qualified Data.Bits as B
 import qualified Data.Word as W
+import qualified Data.Set as S
 
 import TypeSet.Theory
 import TypeSet.Algorithm (popBits, whichBits)
@@ -112,3 +113,21 @@ instance (Eq a, Countable a, Num b, Enum b, B.Bits b, BitSettable a b) => TypeSu
   BitSet s `symmetricDifference` BitSet t = BitSet (s `B.xor` t)
   filter p (BitSet s) = BitSet . foldl' B.clearBit s . Prelude.filter (not . p . fromNatural' . fromIntegral) $ whichBits s
   build = BitSet . foldl' B.setBit B.zeroBits . map fst . Prelude.filter snd . zip [0..] . flip map enumerate
+
+instance (Eq a, Ord a, Countable a) => TypeSubset (S.Set a) a where
+  empty = S.empty
+  singleton = S.singleton
+  fromList = S.fromList
+  toList = S.toList
+  member = S.member
+  size' = fromIntegral . S.size
+  null = (==0) . S.size
+  full = (== cardinality (Proxy :: Proxy a)) . size
+  isSubsetOf = S.isSubsetOf
+  isProperSubsetOf = S.isProperSubsetOf
+  disjoint = S.disjoint
+  union = S.union
+  intersection = S.intersection
+  difference = S.difference
+  unions = S.unions
+  filter = S.filter
