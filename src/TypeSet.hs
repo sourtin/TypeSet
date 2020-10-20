@@ -47,9 +47,10 @@ class (Eq a, Eq s, Countable a) => TypeSubset s a | s -> a where
   empty = fromList []
   universe = fromList enumerate
   powerset = map build enumerate
-  complement = difference universe
+  complement = fromList . flip Prelude.filter enumerate . (not .) . flip member
   singleton = fromList . pure
   fromList = unions . map singleton
+  toList = flip Prelude.filter enumerate . flip member
   member x = elem x . toList
   size = CardFin . size'
   size' = fromIntegral . length . toList
@@ -65,7 +66,9 @@ class (Eq a, Eq s, Countable a) => TypeSubset s a | s -> a where
   unions = foldl10' union empty
   intersections = foldl10' intersection universe
   filter = intersection . build
-  build p = fromList . map fst . Prelude.filter snd $ map (\x -> (x, p x)) enumerate
+  build = fromList . flip Prelude.filter enumerate
+
+  {-# MINIMAL (toList | member), (fromList | singleton, union) #-}
 
 instance (Finite u, Eq v) => Eq (u -> v) where
   f == g = and $ zipWith (==) (map f enumerate) (map g enumerate)
@@ -92,15 +95,19 @@ instance (Eq u, Finite u) => TypeSubset (u -> Bool) u where
 
 newtype BitSet b a = BitSet {getBitSet :: b}
   deriving (Show, Eq, Ord)
+bsmap :: (b -> b) -> (BitSet b a -> BitSet b a)
+bsmap f (BitSet s) = BitSet (f s)
+bslift :: (b -> b -> b) -> (BitSet b a -> BitSet b a -> BitSet b a)
+bslift f (BitSet s) (BitSet t) = BitSet (f s t)
 
 instance (Eq a, Countable a, Num b, Enum b, B.Bits b, BitSettable a b) => TypeSubset (BitSet b a) a where
   empty = BitSet B.zeroBits
   universe = complement empty
-  powerset = map BitSet [0..fromIntegral 2^ub-1]
-    where ub = case cardinality (Proxy :: Proxy a) of CardFin p -> p
-  complement (BitSet x) = case cardinality (Proxy :: Proxy a) of
-    CardFin p -> BitSet $ foldl' B.complementBit x [0..fromIntegral p-1]
-    CardInf 0 -> BitSet $ B.complement x
+  powerset = case cardinality (Proxy :: Proxy a) of
+    CardFin p -> map BitSet [0..fromIntegral 2^p-1]
+  complement = bsmap $ case cardinality (Proxy :: Proxy a) of
+    CardFin p -> flip (foldl' B.complementBit) [0..fromIntegral p-1]
+    CardInf 0 -> B.complement
   singleton = BitSet . B.setBit B.zeroBits . fromIntegral . toNatural
   fromList = BitSet . foldl' B.setBit B.zeroBits . map (fromIntegral . toNatural)
   toList = map (fromNatural' . fromIntegral) . whichBits . getBitSet
@@ -109,11 +116,11 @@ instance (Eq a, Countable a, Num b, Enum b, B.Bits b, BitSettable a b) => TypeSu
     n | n < 0 -> CardInf 0
       | otherwise -> CardFin (fromIntegral n)
   size' = fromIntegral . B.popCount . getBitSet
-  BitSet s `union` BitSet t = BitSet (s B..|. t)
-  BitSet s `intersection` BitSet t = BitSet (s B..&. t)
-  BitSet s `difference` BitSet t = BitSet . foldl' B.clearBit s $ whichBits t
-  BitSet s `symmetricDifference` BitSet t = BitSet (s `B.xor` t)
-  filter p (BitSet s) = BitSet . foldl' B.clearBit s . Prelude.filter (not . p . fromNatural' . fromIntegral) $ whichBits s
+  union = bslift (B..|.)
+  intersection = bslift (B..&.)
+  difference = bslift $ \s -> foldl' B.clearBit s . whichBits
+  symmetricDifference = bslift B.xor
+  filter p = bsmap $ \s -> foldl' B.clearBit s . Prelude.filter (not . p . fromNatural' . fromIntegral) $ whichBits s
   build = BitSet . foldl' B.setBit B.zeroBits . map fst . Prelude.filter snd . zip [0..] . flip map enumerate
 
 instance (Eq a, Ord a, Countable a) => TypeSubset (S.Set a) a where
