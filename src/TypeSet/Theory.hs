@@ -31,6 +31,13 @@ type family BitWidth a :: Cardinal'
 
 type BitSettable a b = Injectable (Cardinality a) (BitWidth b) (Text "Error: Cannot fit powerset of given type " :<>: ShowType a :<>: Text " (Cardinality: " :<>: ShowCardinality (Cardinality a) :<>: Text ") into bitset of type " :<>: ShowType b :<>: Text " and width " :<>: ShowType (BitWidth b) :<>: Text "!")
 
+type InfiniteBitSet = Integer
+type FiniteBitSets = '[W.Word8, W.Word16, W.Word32, W.Word64]
+type BitSetMin a = BitSetMin' (Cardinality a) FiniteBitSets
+type family BitSetMin' (a :: Cardinal') (bs :: [*]) :: * where
+  BitSetMin' _ '[] = InfiniteBitSet
+  BitSetMin' a (b : bs) = UnlessEqual (CmpCard a (BitWidth b)) GT b (BitSetMin' a bs)
+
 class TypeSet a where
   type Cardinality a :: Cardinal'
   cardinality :: Proxy a -> Cardinal
@@ -147,7 +154,7 @@ instance (Countable a, Countable b) => Countable (a, b) where
 instance (Finite a, Finite b) => Finite (a, b)
 
 instance (TypeSet a, TypeSet b) => TypeSet (a -> b) where
-  type Cardinality (a -> b) = CardExp (Cardinality a) (Cardinality b)
+  type Cardinality (a -> b) = CardExp (Cardinality b) (Cardinality a)
   cardinality Proxy = case (cardinality (Proxy :: Proxy a), cardinality (Proxy :: Proxy b)) of
     (CardFin a, CardFin b) -> CardFin (b ^ a)
     (CardFin a, CardInf b) -> CardInf b

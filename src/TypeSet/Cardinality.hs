@@ -66,4 +66,8 @@ type family NotEqualOrFail (a :: k) (b :: k) (msg :: ErrorMessage) :: Constraint
   NotEqualOrFail a a m = TypeError m
   NotEqualOrFail _ _ _ = ()
 
+type family UnlessEqual (a :: k) (b :: k) (c :: l) (d :: l) :: l where
+  UnlessEqual a a _ d = d
+  UnlessEqual _ _ c _ = c
+
 type Injectable a b msg = NotEqualOrFail (CmpCard a b) GT msg

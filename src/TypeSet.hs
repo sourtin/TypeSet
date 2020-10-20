@@ -93,14 +93,15 @@ instance (Eq u, Finite u) => TypeSubset (u -> Bool) u where
   filter = intersection
   build = id
 
-newtype BitSet b a = BitSet {getBitSet :: b}
+type BitSet a = BitSet' (BitSetMin a) a
+newtype BitSet' b a = BitSet {getBitSet :: b}
   deriving (Show, Eq, Ord)
-bsmap :: (b -> b) -> (BitSet b a -> BitSet b a)
+bsmap :: (b -> b) -> (BitSet' b a -> BitSet' b a)
 bsmap f (BitSet s) = BitSet (f s)
-bslift :: (b -> b -> b) -> (BitSet b a -> BitSet b a -> BitSet b a)
+bslift :: (b -> b -> b) -> (BitSet' b a -> BitSet' b a -> BitSet' b a)
 bslift f (BitSet s) (BitSet t) = BitSet (f s t)
 
-instance (Eq a, Countable a, Num b, Enum b, B.Bits b, BitSettable a b) => TypeSubset (BitSet b a) a where
+instance (Eq a, Countable a, Num b, Enum b, B.Bits b, BitSettable a b) => TypeSubset (BitSet' b a) a where
   empty = BitSet B.zeroBits
   universe = complement empty
   powerset = case cardinality (Proxy :: Proxy a) of
