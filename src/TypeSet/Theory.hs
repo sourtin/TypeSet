@@ -20,7 +20,7 @@ import Data.Foldable (foldl')
 import Data.Tuple (swap)
 import Control.Applicative (liftA2)
 import qualified Data.Map.Strict as MS
-import GHC.TypeNats (Nat)
+import GHC.TypeNats (Nat, type (^))
 import GHC.TypeLits (ErrorMessage(..))
 
 import TypeSet.Algorithm
@@ -180,13 +180,123 @@ instance Countable a => Countable [a] where
 
 ---
 
--- I.Int
--- I.Int8
--- I.Int16
--- I.Int32
--- I.Int64
--- W.Word
--- W.Word8
--- W.Word16
--- W.Word32
--- W.Word64
+instance TypeSet W.Word8 where
+  type Cardinality W.Word8 = CardFin' (2^8)
+  cardinality Proxy = CardFin (2^8)
+instance Countable W.Word8 where
+  toNatural = fromIntegral
+  fromNatural x | x < 2^8   = Just (fromIntegral x)
+                | otherwise = Nothing
+instance Finite W.Word8
+
+instance TypeSet W.Word16 where
+  type Cardinality W.Word16 = CardFin' (2^16)
+  cardinality Proxy = CardFin (2^16)
+instance Countable W.Word16 where
+  toNatural = fromIntegral
+  fromNatural x | x < 2^16  = Just (fromIntegral x)
+                | otherwise = Nothing
+instance Finite W.Word16
+
+instance TypeSet W.Word32 where
+  type Cardinality W.Word32 = CardFin' (2^32)
+  cardinality Proxy = CardFin (2^32)
+instance Countable W.Word32 where
+  toNatural = fromIntegral
+  fromNatural x | x < 2^32  = Just (fromIntegral x)
+                | otherwise = Nothing
+instance Finite W.Word32
+
+instance TypeSet W.Word64 where
+  type Cardinality W.Word64 = CardFin' (2^64)
+  cardinality Proxy = CardFin (2^64)
+instance Countable W.Word64 where
+  toNatural = fromIntegral
+  fromNatural x | x < 2^64  = Just (fromIntegral x)
+                | otherwise = Nothing
+instance Finite W.Word64
+
+-- convenience functions for bounded integrals
+-- for some reason scopedtypevariables isn't applying here, so we use
+-- a little hack to get the typechecker to do what we want
+boundedToNat :: (Bounded a, Integral a) => a -> Natural
+boundedToNat x = fromIntegral (fromIntegral x - fromIntegral lb :: Integer)
+  where lb = minBound
+        lb' = lb + (x-x)
+
+natToBounded :: (Bounded a, Integral a) => Natural -> Maybe a
+natToBounded x | x <= range = Just y
+               | otherwise  = Nothing
+  where range' = fromIntegral ub - fromIntegral lb :: Integer
+        range = fromIntegral range'
+        ub = maxBound
+        lb = minBound
+        y = fromIntegral (fromIntegral x + fromIntegral lb :: Integer)
+        lb' = lb + ub + (y-y)
+
+instance TypeSet I.Int8 where
+  type Cardinality I.Int8 = CardFin' (2^8)
+  cardinality Proxy = CardFin (2^8)
+instance Countable I.Int8 where
+  toNatural = boundedToNat
+  fromNatural = natToBounded
+instance Finite I.Int8
+
+instance TypeSet I.Int16 where
+  type Cardinality I.Int16 = CardFin' (2^16)
+  cardinality Proxy = CardFin (2^16)
+instance Countable I.Int16 where
+  toNatural = boundedToNat
+  fromNatural = natToBounded
+instance Finite I.Int16
+
+instance TypeSet I.Int32 where
+  type Cardinality I.Int32 = CardFin' (2^32)
+  cardinality Proxy = CardFin (2^32)
+instance Countable I.Int32 where
+  toNatural = boundedToNat
+  fromNatural = natToBounded
+instance Finite I.Int32
+
+instance TypeSet I.Int64 where
+  type Cardinality I.Int64 = CardFin' (2^64)
+  cardinality Proxy = CardFin (2^64)
+instance Countable I.Int64 where
+  toNatural = boundedToNat
+  fromNatural = natToBounded
+instance Finite I.Int64
+
+instance TypeSet Char where
+  type Cardinality Char = CardFin' 0x110000
+  cardinality Proxy = CardFin 0x110000
+instance Countable Char where
+  toNatural = fromIntegral . fromEnum
+  fromNatural x | x < 0x110000 = Just . toEnum $ fromIntegral x
+                | otherwise    = Nothing
+instance Finite Char
+
+---
+
+instance (TypeSet a, TypeSet b, TypeSet c) => TypeSet (a, b, c) where
+  type Cardinality (a, b, c) = Cardinality (a, (b, c))
+  cardinality Proxy = cardinality (Proxy :: Proxy (a, (b, c)))
+instance (Countable a, Countable b, Countable c) => Countable (a, b, c) where
+  toNatural (x, y, z) = toNatural (x, (y, z))
+  fromNatural = fmap (\(x, (y, z)) -> (x, y, z)) . fromNatural
+instance (Finite a, Finite b, Finite c) => Finite (a, b, c)
+
+instance (TypeSet a, TypeSet b, TypeSet c, TypeSet d) => TypeSet (a, b, c, d) where
+  type Cardinality (a, b, c, d) = Cardinality ((a, b), (c, d))
+  cardinality Proxy = cardinality (Proxy :: Proxy ((a, b), (c, d)))
+instance (Countable a, Countable b, Countable c, Countable d) => Countable (a, b, c, d) where
+  toNatural (w, x, y, z) = toNatural ((w, x), (y, z))
+  fromNatural = fmap (\((w, x), (y, z)) -> (w, x, y, z)) . fromNatural
+instance (Finite a, Finite b, Finite c, Finite d) => Finite (a, b, c, d)
+
+instance (TypeSet a, TypeSet b, TypeSet c, TypeSet d, TypeSet e) => TypeSet (a, b, c, d, e) where
+  type Cardinality (a, b, c, d, e) = Cardinality ((a, b), (c, d, e))
+  cardinality Proxy = cardinality (Proxy :: Proxy ((a, b), (c, d, e)))
+instance (Countable a, Countable b, Countable c, Countable d, Countable e) => Countable (a, b, c, d, e) where
+  toNatural (v, w, x, y, z) = toNatural ((v, w), (x, y, z))
+  fromNatural = fmap (\((v, w), (x, y, z)) -> (v, w, x, y, z)) . fromNatural
+instance (Finite a, Finite b, Finite c, Finite d, Finite e) => Finite (a, b, c, d, e)
