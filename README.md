@@ -243,14 +243,14 @@ instance TypeSet Word32
 instance TypeSet Word64
 instance TypeSet ()
 instance TypeSet Void
-instance TypeSet a => TypeSet ([a] :: Type)
-instance KnownNat n => TypeSet (Fin n :: Type)
-instance (TypeSet a, TypeSet b) => TypeSet (a -> b :: Type)
-instance (TypeSet a, TypeSet b) => TypeSet (Either a b :: Type)
-instance (TypeSet a, TypeSet b) => TypeSet ((a, b) :: Type)
-instance (TypeSet a, TypeSet b, TypeSet c) => TypeSet ((a, b, c) :: Type)
-instance (TypeSet a, TypeSet b, TypeSet c, TypeSet d) => TypeSet ((a, b, c, d) :: Type)
-instance (TypeSet a, TypeSet b, TypeSet c, TypeSet d, TypeSet e) => TypeSet ((a, b, c, d, e) :: Type)
+instance TypeSet a => TypeSet [a]
+instance KnownNat n => TypeSet (Fin n)
+instance (TypeSet a, TypeSet b) => TypeSet (a -> b)
+instance (TypeSet a, TypeSet b) => TypeSet (Either a b)
+instance (TypeSet a, TypeSet b) => TypeSet (a, b)
+instance (TypeSet a, TypeSet b, TypeSet c) => TypeSet (a, b, c)
+instance (TypeSet a, TypeSet b, TypeSet c, TypeSet d) => TypeSet (a, b, c, d)
+instance (TypeSet a, TypeSet b, TypeSet c, TypeSet d, TypeSet e) => TypeSet (a, b, c, d, e)
 ```
 
 ```haskell
