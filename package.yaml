@@ -1,0 +1,22 @@
+name:                TypeSet
+version:             0.1.0.0
+github:              "sourtin/TypeSet"
+license:             BSD3
+author:              "William Earley"
+maintainer:          "nitrous@sourt.in"
+copyright:           "2020 William Earley"
+
+extra-source-files:
+- README.md
+- ChangeLog.md
+
+synopsis:            Abstraction of Set datatype, along with some related theory
+category:            Data
+description:         Please see the README on GitHub at <https://github.com/sourtin/TypeSet#readme>
+
+dependencies:
+- base >= 4.7 && < 5
+- containers
+
+library:
+  source-dirs: src

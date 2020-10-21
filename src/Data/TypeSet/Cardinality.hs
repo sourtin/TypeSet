@@ -6,7 +6,7 @@
 {-# LANGUAGE NoStarIsType #-}
 {-# LANGUAGE PolyKinds #-}
 
-module TypeSet.Cardinality where
+module Data.TypeSet.Cardinality where
 import Numeric.Natural (Natural)
 import GHC.Exts (Constraint)
 import GHC.TypeNats (Nat, type (^), type (+), type (*), type CmpNat)

@@ -9,7 +9,7 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
 
-module TypeSet.Theory where
+module Data.TypeSet.Theory where
 import Data.Proxy (Proxy(Proxy))
 import Numeric.Natural (Natural)
 import Data.Void (Void)
@@ -24,8 +24,8 @@ import qualified Data.Map.Strict as MS
 import GHC.TypeNats (Nat, type (^))
 import GHC.TypeLits (ErrorMessage(..))
 
-import TypeSet.Algorithm
-import TypeSet.Cardinality
+import Data.TypeSet.Algorithm
+import Data.TypeSet.Cardinality
 
 type family BitWidth a :: Cardinal'
 

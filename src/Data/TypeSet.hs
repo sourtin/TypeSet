@@ -4,7 +4,7 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE LambdaCase #-}
 
-module TypeSet where
+module Data.TypeSet where
 import Data.Proxy (Proxy(Proxy))
 import Numeric.Natural (Natural)
 import Data.Foldable (foldl')
@@ -14,9 +14,9 @@ import qualified Data.Bits as B
 import qualified Data.Word as W
 import qualified Data.Set as S
 
-import TypeSet.Theory
-import TypeSet.Algorithm (popBits, whichBits)
-import TypeSet.Cardinality (Cardinal(..))
+import Data.TypeSet.Theory
+import Data.TypeSet.Algorithm (popBits, whichBits)
+import Data.TypeSet.Cardinality (Cardinal(..))
 
 foldl10' :: (a -> a -> a) -> a -> [a] -> a
 foldl10' f x0 [] = x0
@@ -58,7 +58,7 @@ class (Eq a, Eq s, Countable a) => TypeSubset s a | s -> a where
   full = (== universe)
   isSubsetOf a b = b == union a b
   isProperSubsetOf a b = a /= b && isSubsetOf a b
-  disjoint a b = TypeSet.null (union a b)
+  disjoint a b = Data.TypeSet.null (union a b)
   union a b = fromList (toList a ++ toList b)
   intersection a b = complement (complement a `union` complement b)
   difference a b = a `intersection` complement b

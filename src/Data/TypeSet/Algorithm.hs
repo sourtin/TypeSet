@@ -1,6 +1,6 @@
 {-# LANGUAGE LambdaCase #-}
 
-module TypeSet.Algorithm where
+module Data.TypeSet.Algorithm where
 import Numeric.Natural (Natural)
 import Data.Bits (Bits)
 import qualified Data.Bits as B
