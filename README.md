@@ -11,7 +11,7 @@ The purpose of `TypeSet` is to abstract the `Set` data type from its representat
 
 ## Data.Fin
 
-Defines the opaque `Fin` data type. Manipulation can be achieved through its `Countable` instance.
+Defines the opaque `Fin (n :: Nat)` data type, which can (only) represent any natural between 0 and n-1 inclusive. A 'true' and safe implementation is possible with GADTs, but we use an unsafe implementation behind the scenes which simply wraps a `Numeric.Natural` for efficiency. Safety is then obtained by not exporting the constructor. Instead, manipulation can be achieved through its `Countable` instance.
 
 ```haskell
 data Fin (n :: Nat)
