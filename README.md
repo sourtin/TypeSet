@@ -229,79 +229,79 @@ type BitWidth ()
 ```
 
 ```haskell
-TypeSet Bool
-TypeSet Char
-TypeSet Int8
-TypeSet Int16
-TypeSet Int32
-TypeSet Int64
-TypeSet Integer
-TypeSet Natural
-TypeSet Word8
-TypeSet Word16
-TypeSet Word32
-TypeSet Word64
-TypeSet ()
-TypeSet Void
-TypeSet a => TypeSet ([a] :: Type)
-KnownNat n => TypeSet (Fin n :: Type)
-(TypeSet a, TypeSet b) => TypeSet (a -> b :: Type)
-(TypeSet a, TypeSet b) => TypeSet (Either a b :: Type)
-(TypeSet a, TypeSet b) => TypeSet ((a, b) :: Type)
-(TypeSet a, TypeSet b, TypeSet c) => TypeSet ((a, b, c) :: Type)
-(TypeSet a, TypeSet b, TypeSet c, TypeSet d) => TypeSet ((a, b, c, d) :: Type)
-(TypeSet a, TypeSet b, TypeSet c, TypeSet d, TypeSet e) => TypeSet ((a, b, c, d, e) :: Type)
+instance TypeSet Bool
+instance TypeSet Char
+instance TypeSet Int8
+instance TypeSet Int16
+instance TypeSet Int32
+instance TypeSet Int64
+instance TypeSet Integer
+instance TypeSet Natural
+instance TypeSet Word8
+instance TypeSet Word16
+instance TypeSet Word32
+instance TypeSet Word64
+instance TypeSet ()
+instance TypeSet Void
+instance TypeSet a => TypeSet ([a] :: Type)
+instance KnownNat n => TypeSet (Fin n :: Type)
+instance (TypeSet a, TypeSet b) => TypeSet (a -> b :: Type)
+instance (TypeSet a, TypeSet b) => TypeSet (Either a b :: Type)
+instance (TypeSet a, TypeSet b) => TypeSet ((a, b) :: Type)
+instance (TypeSet a, TypeSet b, TypeSet c) => TypeSet ((a, b, c) :: Type)
+instance (TypeSet a, TypeSet b, TypeSet c, TypeSet d) => TypeSet ((a, b, c, d) :: Type)
+instance (TypeSet a, TypeSet b, TypeSet c, TypeSet d, TypeSet e) => TypeSet ((a, b, c, d, e) :: Type)
 ```
 
 ```haskell
-Countable Bool
-Countable Char
-Countable Int8
-Countable Int16
-Countable Int32
-Countable Int64
-Countable Integer
-Countable Natural
-Countable Word8
-Countable Word16
-Countable Word32
-Countable Word64
-Countable ()
-Countable Void
-Countable a => Countable [a]
-KnownNat n => Countable (Fin n)
-(Finite a, Countable b) => Countable (a -> b)
-(Countable a, Countable b) => Countable (Either a b)
-(Countable a, Countable b) => Countable (a, b)
-(Countable a, Countable b, Countable c) => Countable (a, b, c)
-(Countable a, Countable b, Countable c, Countable d) => Countable (a, b, c, d)
-(Countable a, Countable b, Countable c, Countable d, Countable e) => Countable (a, b, c, d, e)
+instance Countable Bool
+instance Countable Char
+instance Countable Int8
+instance Countable Int16
+instance Countable Int32
+instance Countable Int64
+instance Countable Integer
+instance Countable Natural
+instance Countable Word8
+instance Countable Word16
+instance Countable Word32
+instance Countable Word64
+instance Countable ()
+instance Countable Void
+instance Countable a => Countable [a]
+instance KnownNat n => Countable (Fin n)
+instance (Finite a, Countable b) => Countable (a -> b)
+instance (Countable a, Countable b) => Countable (Either a b)
+instance (Countable a, Countable b) => Countable (a, b)
+instance (Countable a, Countable b, Countable c) => Countable (a, b, c)
+instance (Countable a, Countable b, Countable c, Countable d) => Countable (a, b, c, d)
+instance (Countable a, Countable b, Countable c, Countable d, Countable e) => Countable (a, b, c, d, e)
 ```
 
 ```haskell
-Finite Bool
-Finite Char
-Finite Int8
-Finite Int16
-Finite Int32
-Finite Int64
-Finite Word8
-Finite Word16
-Finite Word32
-Finite Word64
-Finite ()
-Finite Void
-KnownNat n => Finite (Fin n)
-(Finite a, Finite b) => Finite (a -> b)
-(Finite a, Finite b) => Finite (Either a b)
-(Finite a, Finite b) => Finite (a, b)
-(Finite a, Finite b, Finite c) => Finite (a, b, c)
-(Finite a, Finite b, Finite c, Finite d) => Finite (a, b, c, d)
-(Finite a, Finite b, Finite c, Finite d, Finite e) => Finite (a, b, c, d, e)
+instance Finite Bool
+instance Finite Char
+instance Finite Int8
+instance Finite Int16
+instance Finite Int32
+instance Finite Int64
+instance Finite Word8
+instance Finite Word16
+instance Finite Word32
+instance Finite Word64
+instance Finite ()
+instance Finite Void
+instance KnownNat n => Finite (Fin n)
+instance (Finite a, Finite b) => Finite (a -> b)
+instance (Finite a, Finite b) => Finite (Either a b)
+instance (Finite a, Finite b) => Finite (a, b)
+instance (Finite a, Finite b, Finite c) => Finite (a, b, c)
+instance (Finite a, Finite b, Finite c, Finite d) => Finite (a, b, c, d)
+instance (Finite a, Finite b, Finite c, Finite d, Finite e) => Finite (a, b, c, d, e)
 ```
 
 ```haskell
-(Eq a, Ord a, Countable a) => TypeSubset (Set a) a
-(Eq u, Finite u) => TypeSubset (u -> Bool) u
-(Eq a, Countable a, Num b, Enum b, Bits b, BitSettable a b) => TypeSubset (BitSet' b a) a
+instance (Eq a, Ord a, Countable a) => TypeSubset (Set a) a
+instance (Eq u, Finite u) => TypeSubset (u -> Bool) u
+instance (Eq a, Countable a, Num b, Enum b, Bits b, BitSettable a b) => TypeSubset (BitSet' b a) a
 ```
