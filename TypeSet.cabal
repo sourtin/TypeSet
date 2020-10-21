@@ -27,6 +27,7 @@ source-repository head
 
 library
   exposed-modules:
+      Data.Fin
       Data.TypeSet
       Data.TypeSet.Algorithm
       Data.TypeSet.Cardinality
