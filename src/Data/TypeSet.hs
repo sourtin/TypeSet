@@ -4,7 +4,14 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE LambdaCase #-}
 
-module Data.TypeSet where
+module Data.TypeSet 
+( (\\)
+, TypeSubset (..)
+, BitSet
+, BitSet'
+, getBitSet
+) where
+
 import Data.Proxy (Proxy(Proxy))
 import Numeric.Natural (Natural)
 import Data.Foldable (foldl')

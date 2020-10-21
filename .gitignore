@@ -6,3 +6,4 @@ Main
 *.hp
 *.prof
 *.yaml.lock
+dist-newstyle

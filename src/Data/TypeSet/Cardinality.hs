@@ -6,7 +6,17 @@
 {-# LANGUAGE NoStarIsType #-}
 {-# LANGUAGE PolyKinds #-}
 
-module Data.TypeSet.Cardinality where
+module Data.TypeSet.Cardinality
+( Cardinal (..)
+, Cardinal' (..)
+, CardAdd
+, CardMul
+, CardExp
+, CardList
+, CmpCard
+, ShowCardinality
+, Injectable
+) where
 import Numeric.Natural (Natural)
 import GHC.Exts (Constraint)
 import GHC.TypeNats (Nat, type (^), type (+), type (*), type CmpNat)
@@ -65,9 +75,5 @@ type family EqualOrFail (a :: k) (b :: k) (msg :: ErrorMessage) :: Constraint wh
 type family NotEqualOrFail (a :: k) (b :: k) (msg :: ErrorMessage) :: Constraint where
   NotEqualOrFail a a m = TypeError m
   NotEqualOrFail _ _ _ = ()
-
-type family UnlessEqual (a :: k) (b :: k) (c :: l) (d :: l) :: l where
-  UnlessEqual a a _ d = d
-  UnlessEqual _ _ c _ = c
 
 type Injectable a b msg = NotEqualOrFail (CmpCard a b) GT msg

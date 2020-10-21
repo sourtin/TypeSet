@@ -8,8 +8,18 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE PolyKinds #-}
 
-module Data.TypeSet.Theory where
+module Data.TypeSet.Theory
+( BitWidth
+, BitSettable
+, BitSetMin
+, TypeSet (..)
+, Countable (..)
+, Finite
+) where
+
+
 import Data.Proxy (Proxy(Proxy))
 import Numeric.Natural (Natural)
 import Data.Void (Void)
@@ -29,7 +39,12 @@ import Data.TypeSet.Cardinality
 
 type family BitWidth a :: Cardinal'
 
-type BitSettable a b = Injectable (Cardinality a) (BitWidth b) (Text "Error: Cannot fit powerset of given type " :<>: ShowType a :<>: Text " (Cardinality: " :<>: ShowCardinality (Cardinality a) :<>: Text ") into bitset of type " :<>: ShowType b :<>: Text " and width " :<>: ShowType (BitWidth b) :<>: Text "!")
+type BitSettable a b = Injectable (Cardinality a) (BitWidth b) (NotBitSettableError a b)
+type NotBitSettableError a b =
+  Text "Error: Cannot fit powerset of given type " :<>: ShowType a :<>:
+  Text " (Cardinality: " :<>: ShowCardinality (Cardinality a) :<>: Text ")" :<>:
+  Text " into bitset of type " :<>: ShowType b :<>:
+  Text " and width " :<>: ShowType (BitWidth b) :<>: Text "!"
 
 type InfiniteBitSet = Integer
 type FiniteBitSets = '[W.Word8, W.Word16, W.Word32, W.Word64]
@@ -37,6 +52,9 @@ type BitSetMin a = BitSetMin' (Cardinality a) FiniteBitSets
 type family BitSetMin' (a :: Cardinal') (bs :: [*]) :: * where
   BitSetMin' _ '[] = InfiniteBitSet
   BitSetMin' a (b : bs) = UnlessEqual (CmpCard a (BitWidth b)) GT b (BitSetMin' a bs)
+type family UnlessEqual (a :: k) (b :: k) (c :: l) (d :: l) :: l where
+  UnlessEqual a a _ d = d
+  UnlessEqual _ _ c _ = c
 
 class TypeSet a where
   type Cardinality a :: Cardinal'
