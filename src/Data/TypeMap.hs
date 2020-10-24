@@ -137,3 +137,38 @@ instance (Eq k, Finite k) => TypeMap (FnPartial k) k where
 instance (Eq k, Finite k) => TypeMapPartial (FnPartial k) k where
   empty = FnPartial (const Nothing)
   alter f k (FnPartial m) = FnPartial (\k' -> if k == k' then f (m k) else m k)
+
+newtype MkPartial m k v = MkPartial { getPartial :: m k (Maybe v) }
+pmap :: (m k (Maybe u) -> m k (Maybe v)) -> (MkPartial m k u -> MkPartial m k v)
+pmap f = MkPartial . f . getPartial
+
+instance TypeMapTotal (m k) k => TypeMap (MkPartial m k) k where
+  lookup k = get k . getPartial
+  assocs = catMaybes . Prelude.map (\(k,v) -> fmap (k,) v) . assocs . getPartial
+  replace k = pmap . replace k . Just
+  replaceWith = (pmap .) . replaceWith . fmap
+  map = pmap . Data.TypeMap.map . fmap
+  mapWithKey f = pmap $ mapWithKey (fmap . f)
+  mapAccumWithKey f acc = fmap MkPartial . mapAccumWithKey f' acc . getPartial
+    where f' a k = maybe (a, Nothing) (fmap Just . f a k)
+  mapAccumRWithKey f acc = fmap MkPartial . mapAccumRWithKey f' acc . getPartial
+    where f' a k = maybe (a, Nothing) (fmap Just . f a k)
+  mapAccumWithKeyBy ks f acc = fmap MkPartial . mapAccumWithKeyBy ks f' acc . getPartial
+    where f' a k = maybe (a, Nothing) (fmap Just . f a k)
+
+instance TypeMapTotal (m k) k => TypeMapPartial (MkPartial m k) k where
+  empty = MkPartial $ build (const Nothing)
+  singleton k v = MkPartial $ build (\k' -> if k == k' then Just v else Nothing)
+  insert k = pmap . replace k . Just
+  insertWith f k v = pmap (replaceWith (Just . maybe v (f v)) k)
+  insertLookupWithKey f k v = fmap MkPartial . mapAccumWithKeyBy [k] f' Nothing . getPartial
+    where f' _ k Nothing = (Nothing, Just v)
+          f' _ k v' = (v', fmap (f k v) v')
+  delete k = pmap (replace k Nothing)
+  adjust f = pmap . replaceWith (fmap f)
+  update f = pmap . replaceWith (>>= f)
+  updateLookup f k = fmap MkPartial . mapAccumWithKeyBy [k] f' Nothing . getPartial
+    where f' _ _ v = (v, v >>= f)
+  alter f = pmap . replaceWith f
+  findWithDefault v k = maybe v id . get k . getPartial
+  member k = maybe False (const True) . get k . getPartial
