@@ -96,8 +96,13 @@ class TypeMap m k => TypeMapPartial m k | m -> k where
 
   {-# MINIMAL empty, alter #-}
 
-class TypeMapMutable where
-class TypeMapTotalMutable where
+class TypeMap m k => TypeMapMutable m k mo | m -> k where
+  mapMut :: m a -> (a -> b) -> mo (m b)
+  mapMutWithKey :: m a -> (k -> a -> b) -> mo (m b)
+
+class TypeMapMutable m k mo => TypeMapTotalMutable m k mo | m -> k where
+  read :: m v -> k -> mo v
+  write :: m v -> k -> v -> mo ()
 
 
 -- =
