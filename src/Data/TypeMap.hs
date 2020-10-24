@@ -3,7 +3,14 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TupleSections #-}
 
-module Data.TypeMap where
+module Data.TypeMap
+( TypeMap(..)
+, TypeMapTotal(..)
+, TypeMapPartial(..)
+, (!), (!?)
+, FnPartial(..)
+, MkPartial(..)
+) where
 
 import Data.Maybe (catMaybes)
 import Numeric.Natural (Natural)
@@ -29,8 +36,6 @@ class (Eq k, Finite k) => TypeMap m k | m -> k where
   mapAccum :: (a -> b -> (a, c)) -> a -> (m b -> (a, m c))
   mapAccumWithKey :: (a -> k -> b -> (a, c)) -> a -> (m b -> (a, m c))
   mapAccumRWithKey :: (a -> k -> b -> (a, c)) -> a -> (m b -> (a, m c))
-  -- | precondition for TypeMapTotal instances (not checked):
-  --   [k] is a permutation of enumerate
   mapAccumWithKeyBy :: [k] -> (a -> k -> b -> (a, c)) -> a -> (m b -> (a, m c))
 
   assocs = catMaybes . flip Prelude.map enumerate . go
@@ -95,15 +100,6 @@ class TypeMap m k => TypeMapPartial m k | m -> k where
   unionsWithKey = flip foldl' empty . unionWithKey
 
   {-# MINIMAL empty, alter #-}
-
-class TypeMap m k => TypeMapMutable m k mo | m -> k where
-  mapMut :: m a -> (a -> b) -> mo (m b)
-  mapMutWithKey :: m a -> (k -> a -> b) -> mo (m b)
-
-class TypeMapMutable m k mo => TypeMapTotalMutable m k mo | m -> k where
-  read :: m v -> k -> mo v
-  write :: m v -> k -> v -> mo ()
-
 
 -- =
 

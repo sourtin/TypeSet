@@ -1,8 +1,10 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.34.2.
+-- This file has been generated from package.yaml by hpack version 0.33.0.
 --
 -- see: https://github.com/sol/hpack
+--
+-- hash: 636a975d59a535beabde0bc995966e41174cf1254a4b4a2ddc7b9eb992b8a8df
 
 name:           TypeSet
 version:        0.1.0.0
@@ -29,6 +31,7 @@ library
   exposed-modules:
       Data.Fin
       Data.TypeMap
+      Data.TypeMap.Mutable
       Data.TypeSet
       Data.TypeSet.Algorithm
       Data.TypeSet.Cardinality
@@ -38,6 +41,7 @@ library
   hs-source-dirs:
       src
   build-depends:
-      base >=4.7 && <5
+      array
+    , base >=4.7 && <5
     , containers
   default-language: Haskell2010
