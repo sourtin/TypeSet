@@ -8,6 +8,7 @@ module Data.TypeMap where
 import Data.Maybe (catMaybes)
 import Numeric.Natural (Natural)
 import Data.TypeSet.Theory (Countable(..), Finite)
+import Data.Foldable (foldl')
 import qualified Data.Map.Strict as MS
 
 infixl 9 !
@@ -72,6 +73,29 @@ class TypeMap m k => TypeMapPartial m k | m -> k where
   unions :: [m v] -> m v
   unionsWithKey :: (k -> v -> v -> v) -> ([m v] -> m v)
 
+  singleton k v = fromAssocs [(k, v)]
+  fromAssocs = fromAssocsWith const
+  fromAssocsWith = fromAssocsWithKey . const
+  fromAssocsWithKey f = foldl' (\m (k,v) -> insertWithKey f k v m) empty
+  insert = insertWith const
+  insertWith f k v = alter (pure . maybe v (f v)) k
+  insertWithKey f k = insertWith (f k) k
+  insertLookupWithKey f k v m = (Data.TypeMap.lookup k m, insertWithKey f k v m)
+  delete = update (const Nothing)
+  adjust = update . (pure .)
+  update = alter . (=<<)
+  updateLookup f k m = (Data.TypeMap.lookup k m, update f k m)
+  findWithDefault v = (maybe v id .) . Data.TypeMap.lookup
+  member = (maybe False (const True) .) . Data.TypeMap.lookup
+  null = (==0) . length . assocs
+  size = fromIntegral . length . assocs
+  union = unionWithKey (const const)
+  unionWithKey f m = foldl' (\m (k,v) -> insertWithKey f k v m) m . assocs
+  unions = unionsWithKey (const const)
+  unionsWithKey = flip foldl' empty . unionWithKey
+
+  {-# MINIMAL empty, alter #-}
+
 -- =
 
 instance (Eq k, Finite k) => TypeMap ((->) k) k where
@@ -92,3 +116,20 @@ instance (Eq k, Finite k) => TypeMapTotal ((->) k) k where
   get = flip ($)
 
 newtype FnPartial k v = FnPartial { getFn :: k -> Maybe v }
+
+instance (Eq k, Finite k) => TypeMap (FnPartial k) k where
+  lookup = flip getFn
+  map f m = FnPartial (fmap f . getFn m)
+  mapWithKey f m = FnPartial (\k -> f k <$> getFn m k)
+  mapAccumWithKeyBy ks f = go ks (MS.empty)
+    where go [] m' acc m = (acc, FnPartial ((m' MS.!?) . toNatural))
+          go (k:ks) m' acc m =
+            case getFn m k of
+              Nothing -> go ks m' acc m
+              Just v ->
+                let (acc', v') = f acc k v
+                in go ks (MS.insert (toNatural k) v' m') acc' m
+
+instance (Eq k, Finite k) => TypeMapPartial (FnPartial k) k where
+  empty = FnPartial (const Nothing)
+  alter f k (FnPartial m) = FnPartial (\k' -> if k == k' then f (m k) else m k)
