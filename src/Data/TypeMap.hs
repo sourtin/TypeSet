@@ -96,6 +96,10 @@ class TypeMap m k => TypeMapPartial m k | m -> k where
 
   {-# MINIMAL empty, alter #-}
 
+class TypeMapMutable where
+class TypeMapTotalMutable where
+
+
 -- =
 
 instance (Eq k, Finite k) => TypeMap ((->) k) k where
