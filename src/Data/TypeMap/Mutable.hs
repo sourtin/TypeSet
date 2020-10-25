@@ -10,6 +10,7 @@ module Data.TypeMap.Mutable
 ( MTypeMap(..)
 , MTypeMapTotal(..)
 , TotalArray(getTotalArray) -- don't export constructor to guarantee totality
+, runTotalArray
 ) where
 
 import Data.Proxy (Proxy(Proxy))

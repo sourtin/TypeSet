@@ -8,6 +8,7 @@ module Data.Fin (Fin) where
 import GHC.TypeNats (Nat, KnownNat, natVal)
 import Data.Proxy (Proxy(..))
 import Data.Kind (Type)
+import Data.Ix (Ix(..))
 import Numeric.Natural
 
 import Data.TypeSet.Cardinality (Cardinal'(..), Cardinal(..))
@@ -58,3 +59,9 @@ instance forall n. KnownNat n => Num (Fin n) where
 instance forall n. KnownNat n => Show (Fin n) where
   show (MkFin m) = show m ++ "_" ++ show (natVal p)
     where p = Proxy :: Proxy n
+
+instance forall n. KnownNat n => Ix (Fin n) where
+  range (MkFin m, MkFin n) = map MkFin $ range (m,n)
+  index (MkFin m, MkFin n) (MkFin l) = index (m,n) l
+  inRange (MkFin m, MkFin n) (MkFin l) = inRange (m,n) l
+  rangeSize (MkFin m, MkFin n) = rangeSize (m,n)
