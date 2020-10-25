@@ -41,9 +41,9 @@ class (Eq k, Finite k) => TypeMap m k | m -> k where
   assocs = catMaybes . flip Prelude.map enumerate . go
     where go m k = (k,) <$> Data.TypeMap.lookup k m
   replace k = flip replaceWith k . const
-  replaceWith f k = Data.TypeMap.mapWithKey (\k' v -> if k == k' then f v else v)
+  replaceWith f k = mapWithKey (\k' v -> if k == k' then f v else v)
   map = mapWithKey . const
-  mapWithKey = (snd .) . flip mapAccumWithKey () . const . ((((),) .) .)
+  mapWithKey f = snd . mapAccumWithKey (\() k b -> ((), f k b)) ()
   mapAccum = mapAccumWithKey . flip . const
   mapAccumWithKey = mapAccumWithKeyBy enumerate
   mapAccumRWithKey = mapAccumWithKeyBy (reverse enumerate)
@@ -53,6 +53,10 @@ class (Eq k, Finite k) => TypeMap m k | m -> k where
 class TypeMap m k => TypeMapTotal m k | m -> k where
   build :: (k -> v) -> m v
   get :: k -> m v -> v
+
+  get k = (\(Just x) -> x) . Data.TypeMap.lookup k
+
+  {-# MINIMAL build #-}
 
 class TypeMap m k => TypeMapPartial m k | m -> k where
   empty :: m v
