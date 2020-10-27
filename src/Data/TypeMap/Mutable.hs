@@ -27,7 +27,7 @@ import Data.TypeSet.Cardinality (Cardinal(CardFin))
 import Data.TypeSet.Theory (cardinality, Countable(..), Finite)
 import Data.TypeMap ()
 
-class (Eq k, Finite k, Monad mo) => MTypeMap m k mo | m -> k where
+class (Eq k, Countable k, Monad mo) => MTypeMap m k mo | m -> k where
   lookup :: k -> m v -> mo (Maybe v)
   assocs :: m v -> mo [(k, v)]
   replace :: k -> v -> m v -> mo ()
@@ -51,7 +51,7 @@ class (Eq k, Finite k, Monad mo) => MTypeMap m k mo | m -> k where
 
   {-# MINIMAL lookup, mapAccumWithKeyBy #-}
 
-class (Finite k, Monad mo, MTypeMap m k mo) => MTypeMapTotal m k mo | m -> k where
+class (Finite k, MTypeMap m k mo) => MTypeMapTotal m k mo | m -> k where
   build :: (k -> v) -> mo (m v)
   get :: m v -> k -> mo v
 

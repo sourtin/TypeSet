@@ -26,7 +26,7 @@ infixl 9 !?
 (!?) :: TypeMapPartial m k => m v -> k -> Maybe v
 (!?) = flip Data.TypeMap.lookup
 
-class (Eq k, Finite k) => TypeMap m k | m -> k where
+class (Eq k, Countable k) => TypeMap m k | m -> k where
   lookup :: k -> m v -> Maybe v
   assocs :: m v -> [(k, v)]
   replace :: k -> v -> m v -> m v
@@ -50,7 +50,7 @@ class (Eq k, Finite k) => TypeMap m k | m -> k where
 
   {-# MINIMAL lookup, mapAccumWithKeyBy #-}
 
-class TypeMap m k => TypeMapTotal m k | m -> k where
+class (Finite k, TypeMap m k) => TypeMapTotal m k | m -> k where
   build :: (k -> v) -> m v
   get :: k -> m v -> v
 
