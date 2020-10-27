@@ -18,14 +18,16 @@ import Data.Proxy (Proxy(Proxy))
 import Data.Maybe (catMaybes)
 import Numeric.Natural (Natural)
 import Data.Foldable (foldl')
-import Control.Monad.ST (runST)
+import Control.Monad (foldM)
+import Control.Monad.ST (ST, runST)
 import qualified Data.Array as A
+import qualified Data.Array.MArray as AM
+import qualified Data.Array.ST as AS
 import Data.Array.Unsafe (unsafeFreeze)
 import qualified Data.Map.Strict as MS
 import Data.TypeSet.Cardinality (Cardinal(CardFin))
 import Data.TypeSet.Theory (cardinality, Countable(..), Finite)
 import Data.TypeMap.Internal
-import qualified Data.TypeMap.Mutable as TMM
 
 infixl 9 !
 (!) :: TypeMapTotal m k => k -> m v -> v
@@ -252,10 +254,18 @@ instance (Eq k, Finite k) => TypeMap (TotalArray k) k where
         foldr go (acc,[]) (zip enumerate $ A.elems m)
     where CardFin n = cardinality (Proxy :: Proxy k)
           go (k,v) (z,xs) = let (z',x) = f z k v in (z',x:xs)
-  mapAccumWithKeyBy ks f acc m = runST $ do
-    (acc', m') <- TMM.thawTotalArray m >>= TMM.mapAccumWithKeyBy ks f acc
-    m'' <- unsafeFreeze (TMM.getTotalArrayST m')
-    return (acc', MkTotalArray m'')
+
+  mapAccumWithKeyBy ks f acc (MkTotalArray m) = runST $ do
+      m' <- (AM.newArray_ (0, n-1) :: ST s (AS.STArray s Natural c))
+      acc' <- foldM (go m') acc ks
+      m'' <- unsafeFreeze m'
+      return (acc', MkTotalArray m'')
+    where
+      CardFin n = cardinality (Proxy :: Proxy k)
+      go m' a k =
+        let i = toNatural k
+            (a', v') = f a k (m A.! i)
+        in AM.writeArray m' i v' >> return a'
 
 instance (Eq k, Finite k) => TypeMapTotal (TotalArray k) k where
   build f = MkTotalArray $ A.listArray (0, n-1) (Prelude.map f enumerate)

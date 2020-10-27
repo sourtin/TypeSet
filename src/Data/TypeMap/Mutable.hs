@@ -63,8 +63,6 @@ class (Finite k, MTypeMap m k mo) => MTypeMapTotal m k mo | m -> k where
 
 -- =
 
-newtype TotalArrayST s k v = MkTotalArrayST { getTotalArrayST :: AS.STArray s Natural v }
-
 runTotalArray :: Finite k => (forall s. ST s (TotalArrayST s k v)) -> TotalArray k v
 runTotalArray st = MkTotalArray (AS.runSTArray $ fmap getTotalArrayST st)
 
@@ -92,7 +90,6 @@ instance (Eq k, Finite k) => MTypeMap (TotalArrayST s k) k (ST s) where
             let (a', v') = f a (fromNatural' i) v
             in AM.writeArray m' i v' >> return a')
        return (acc', MkTotalArrayST m')
-    where CardFin n = cardinality (Proxy :: Proxy k)
   
   mapAccumRWithKey f acc (MkTotalArrayST m) =
     do m' <- AM.getBounds m >>= AM.newArray_
@@ -101,14 +98,12 @@ instance (Eq k, Finite k) => MTypeMap (TotalArrayST s k) k (ST s) where
             let (a', v') = f a (fromNatural' i) v
             in AM.writeArray m' i v' >> return a')
        return (acc', MkTotalArrayST m')
-    where CardFin n = cardinality (Proxy :: Proxy k)
 
   mapAccumWithKeyBy ks f acc (MkTotalArrayST m) =
     do m' <- AM.getBounds m >>= AM.newArray_
        acc' <- foldM (go m') acc ks
        return (acc', MkTotalArrayST m')
     where
-      CardFin n = cardinality (Proxy :: Proxy k)
       go m' a k = let i = toNatural k in
         f a k <$> AM.readArray m i >>=
           \(a', v') -> AM.writeArray m' i v' >> return a'
