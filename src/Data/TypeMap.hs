@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -10,13 +11,21 @@ module Data.TypeMap
 , (!), (!?)
 , FnPartial(..)
 , MkPartial(..)
+, TotalArray(getTotalArray)
 ) where
 
+import Data.Proxy (Proxy(Proxy))
 import Data.Maybe (catMaybes)
 import Numeric.Natural (Natural)
-import Data.TypeSet.Theory (Countable(..), Finite)
 import Data.Foldable (foldl')
+import Control.Monad.ST (runST)
+import qualified Data.Array as A
+import Data.Array.Unsafe (unsafeFreeze)
 import qualified Data.Map.Strict as MS
+import Data.TypeSet.Cardinality (Cardinal(CardFin))
+import Data.TypeSet.Theory (cardinality, Countable(..), Finite)
+import Data.TypeMap.Internal
+import qualified Data.TypeMap.Mutable as TMM
 
 infixl 9 !
 (!) :: TypeMapTotal m k => k -> m v -> v
@@ -219,3 +228,36 @@ instance (Ord k, Finite k) => TypeMapPartial (MS.Map k) k where
   union = MS.union
   unionWithKey = MS.unionWithKey
   unions = MS.unions
+
+-- immutable arrays
+
+amap f = MkTotalArray . f . getTotalArray
+
+instance (Eq k, Finite k) => TypeMap (TotalArray k) k where
+  lookup k = Just . get k
+  assocs = zip enumerate . A.elems . getTotalArray
+  replace k v = amap (A.// [(toNatural k, v)])
+  replaceWith f k = amap $ \m -> let i = toNatural k in (m A.// [f <$> (i, m A.! i)])
+  map f = amap (A.listArray (0,n-1) . Prelude.map f . A.elems)
+    where CardFin n = cardinality (Proxy :: Proxy k)
+  mapWithKey f = amap (A.listArray (0,n-1) . zipWith f enumerate . A.elems)
+    where CardFin n = cardinality (Proxy :: Proxy k)
+  mapAccumWithKey f acc (MkTotalArray m) =
+      MkTotalArray . A.listArray (0,n-1) . reverse <$>
+        foldl' go (acc,[]) (zip enumerate $ A.elems m)
+    where CardFin n = cardinality (Proxy :: Proxy k)
+          go (z,xs) (k,v) = let (z',x) = f z k v in (z',x:xs)
+  mapAccumRWithKey f acc (MkTotalArray m) =
+      MkTotalArray . A.listArray (0,n-1) <$>
+        foldr go (acc,[]) (zip enumerate $ A.elems m)
+    where CardFin n = cardinality (Proxy :: Proxy k)
+          go (k,v) (z,xs) = let (z',x) = f z k v in (z',x:xs)
+  mapAccumWithKeyBy ks f acc m = runST $ do
+    (acc', m') <- TMM.thawTotalArray m >>= TMM.mapAccumWithKeyBy ks f acc
+    m'' <- unsafeFreeze (TMM.getTotalArrayST m')
+    return (acc', MkTotalArray m'')
+
+instance (Eq k, Finite k) => TypeMapTotal (TotalArray k) k where
+  build f = MkTotalArray $ A.listArray (0, n-1) (Prelude.map f enumerate)
+    where CardFin n = cardinality (Proxy :: Proxy k)
+  get k (MkTotalArray m) = m A.! (toNatural k)

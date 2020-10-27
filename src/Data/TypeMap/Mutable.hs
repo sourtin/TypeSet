@@ -9,8 +9,10 @@
 module Data.TypeMap.Mutable
 ( MTypeMap(..)
 , MTypeMapTotal(..)
-, TotalArray(getTotalArray) -- don't export constructor to guarantee totality
+, TotalArrayST(getTotalArrayST)
+  -- don't export constructor to guarantee totality
 , runTotalArray
+, thawTotalArray
 ) where
 
 import Data.Proxy (Proxy(Proxy))
@@ -25,6 +27,7 @@ import Control.Monad.ST (ST, runST)
 import GHC.Arr (unsafeFreezeSTArray)
 import Data.TypeSet.Cardinality (Cardinal(CardFin))
 import Data.TypeSet.Theory (cardinality, Countable(..), Finite)
+import Data.TypeMap.Internal
 
 class (Eq k, Countable k, Monad mo) => MTypeMap m k mo | m -> k where
   lookup :: k -> m v -> mo (Maybe v)
@@ -60,51 +63,50 @@ class (Finite k, MTypeMap m k mo) => MTypeMapTotal m k mo | m -> k where
 
 -- =
 
-newtype TotalArray s k v = MkTotalArray { getTotalArray :: AS.STArray s Natural v }
+newtype TotalArrayST s k v = MkTotalArrayST { getTotalArrayST :: AS.STArray s Natural v }
 
-runTotalArray :: (Finite k, AM.Ix k) => (forall s. ST s (TotalArray s k v)) -> A.Array k v
-runTotalArray st = AS.runSTArray $ do
-  MkTotalArray m <- st
-  (a, b) <- AM.getBounds m
-  AM.mapIndices (fromNatural' a, fromNatural' b) toNatural m
+runTotalArray :: Finite k => (forall s. ST s (TotalArrayST s k v)) -> TotalArray k v
+runTotalArray st = MkTotalArray (AS.runSTArray $ fmap getTotalArrayST st)
 
+thawTotalArray :: Finite k => TotalArray k v -> ST s (TotalArrayST s k v)
+thawTotalArray = fmap MkTotalArrayST . AM.thaw . getTotalArray
 
-instance (Eq k, Finite k) => MTypeMap (TotalArray s k) k (ST s) where
+instance (Eq k, Finite k) => MTypeMap (TotalArrayST s k) k (ST s) where
   lookup k m = Just <$> get m k
-  assocs = fmap (zip enumerate) . AM.getElems . getTotalArray
-  replace k v (MkTotalArray m) = AM.writeArray m (toNatural k) v
-  replaceWith f k (MkTotalArray m) =
-    let i = toNatural k in AM.readArray m i >>= AM.writeArray m i
-  map f = fmap MkTotalArray . AM.mapArray f . getTotalArray
+  assocs = fmap (zip enumerate) . AM.getElems . getTotalArrayST
+  replace k v (MkTotalArrayST m) = AM.writeArray m (toNatural k) v
+  replaceWith f k (MkTotalArrayST m) =
+    let i = toNatural k in AM.readArray m i >>= AM.writeArray m i . f
+  map f = fmap MkTotalArrayST . AM.mapArray f . getTotalArrayST
 
-  mapWithKey f (MkTotalArray m) =
+  mapWithKey f (MkTotalArrayST m) =
     do m' <- AM.getBounds m >>= AM.newArray_
        AM.getAssocs m >>= mapM (\(i, v) ->
           AM.writeArray m' i (f (fromNatural' i) v))
-       return (MkTotalArray m')
+       return (MkTotalArrayST m')
   
-  mapAccumWithKey f acc (MkTotalArray m) =
+  mapAccumWithKey f acc (MkTotalArrayST m) =
     do m' <- AM.getBounds m >>= AM.newArray_
        acc' <- AM.getAssocs m >>=
           flip foldM acc (\a (i, v) ->
             let (a', v') = f a (fromNatural' i) v
             in AM.writeArray m' i v' >> return a')
-       return (acc', MkTotalArray m')
+       return (acc', MkTotalArrayST m')
     where CardFin n = cardinality (Proxy :: Proxy k)
   
-  mapAccumRWithKey f acc (MkTotalArray m) =
+  mapAccumRWithKey f acc (MkTotalArrayST m) =
     do m' <- AM.getBounds m >>= AM.newArray_
        acc' <- reverse <$> AM.getAssocs m >>=
           flip foldM acc (\a (i, v) ->
             let (a', v') = f a (fromNatural' i) v
             in AM.writeArray m' i v' >> return a')
-       return (acc', MkTotalArray m')
+       return (acc', MkTotalArrayST m')
     where CardFin n = cardinality (Proxy :: Proxy k)
 
-  mapAccumWithKeyBy ks f acc (MkTotalArray m) =
+  mapAccumWithKeyBy ks f acc (MkTotalArrayST m) =
     do m' <- AM.getBounds m >>= AM.newArray_
        acc' <- foldM (go m') acc ks
-       return (acc', MkTotalArray m')
+       return (acc', MkTotalArrayST m')
     where
       CardFin n = cardinality (Proxy :: Proxy k)
       go m' a k = let i = toNatural k in
@@ -112,7 +114,7 @@ instance (Eq k, Finite k) => MTypeMap (TotalArray s k) k (ST s) where
           \(a', v') -> AM.writeArray m' i v' >> return a'
 
 
-instance (Eq k, Finite k) => MTypeMapTotal (TotalArray s k) k (ST s) where
-  build f = MkTotalArray <$> AM.newListArray (0, n-1) (Prelude.map f enumerate)
+instance (Eq k, Finite k) => MTypeMapTotal (TotalArrayST s k) k (ST s) where
+  build f = MkTotalArrayST <$> AM.newListArray (0, n-1) (Prelude.map f enumerate)
     where CardFin n = cardinality (Proxy :: Proxy k)
-  get (MkTotalArray m) = AM.readArray m . toNatural
+  get (MkTotalArrayST m) = AM.readArray m . toNatural

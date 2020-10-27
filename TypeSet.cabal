@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 636a975d59a535beabde0bc995966e41174cf1254a4b4a2ddc7b9eb992b8a8df
+-- hash: 2ae209508843f16fe58476fc4f3bd6e67d2a85e87ebb040582a297d40efb36ab
 
 name:           TypeSet
 version:        0.1.0.0
@@ -31,6 +31,7 @@ library
   exposed-modules:
       Data.Fin
       Data.TypeMap
+      Data.TypeMap.Internal
       Data.TypeMap.Mutable
       Data.TypeSet
       Data.TypeSet.Algorithm

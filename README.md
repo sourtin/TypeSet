@@ -225,6 +225,12 @@ newtype FnPartial k v = FnPartial { getFn :: k -> Maybe v }
 newtype MkPartial m k v = MkPartial { getPartial :: m k (Maybe v) }
 ```
 
+And a newtype for guaranteeing an array is total (i.e. its keys cover the entire range of the type):
+
+```haskell
+newtype TotalArray k v = MkTotalArray { getTotalArray :: Array Natural v }
+```
+
 ### TypeMap
 
 ```haskell
@@ -294,8 +300,9 @@ class TypeMap m k => TypeMapPartial m k | m -> k where
 A monadic interface to the same operations as for `TypeMapTotal`. In principle we could do the same for `TypeMapPartial`, but this is not yet implemented. For `STArrays` over `Finite` types, we provide `TotalArray`:
 
 ```haskell
-newtype TotalArray s k v = MkTotalArray { getTotalArray :: AS.STArray s Natural v }
-runTotalArray :: (Finite k, AM.Ix k) => (forall s. ST s (TotalArray s k v)) -> A.Array k v
+newtype TotalArrayST s k v = MkTotalArrayST { getTotalArrayST :: STArray s Natural v }
+runTotalArray :: Finite k => (forall s. ST s (TotalArrayST s k v)) -> A.Array k v
+thawTotalArray :: Finite k => TotalArray k v -> ST s (TotalArrayST s k v)
 ```
 
 ### MTypeMap
@@ -431,9 +438,11 @@ instance TypeMapTotal (m k) k => TypeMap (MkPartial m k) k
 instance TypeMapTotal (m k) k => TypeMapPartial (MkPartial m k) k
 instance (Ord k, Finite k) => TypeMap (Data.Map.Strict.Map k) k
 instance (Ord k, Finite k) => TypeMapPartial (Data.Map.Strict.Map k) k
+instance (Eq k, Finite k) => TypeMap (TotalArray k) k
+instance (Eq k, Finite k) => TypeMapTotal (TotalArray k) k
 ```
 
 ```haskell
-instance (Eq k, Finite k) => MTypeMap (TotalArray s k) k (ST s)
-instance (Eq k, Finite k) => MTypeMapTotal (TotalArray s k) k (ST s)
+instance (Eq k, Finite k) => MTypeMap (TotalArrayST s k) k (ST s)
+instance (Eq k, Finite k) => MTypeMapTotal (TotalArrayST s k) k (ST s)
 ```
