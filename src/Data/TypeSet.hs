@@ -29,6 +29,7 @@ foldl10' :: (a -> a -> a) -> a -> [a] -> a
 foldl10' f x0 [] = x0
 foldl10' f _ xs = foldl1' f xs
 
+infixl 9 \\
 (\\) :: TypeSubset s a => s -> s -> s
 (\\) = difference
 
