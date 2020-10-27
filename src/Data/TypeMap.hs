@@ -23,8 +23,8 @@ infixl 9 !
 (!) = get
 
 infixl 9 !?
-(!?) :: TypeMapPartial m k => k -> m v -> Maybe v
-(!?) = Data.TypeMap.lookup
+(!?) :: TypeMapPartial m k => m v -> k -> Maybe v
+(!?) = flip Data.TypeMap.lookup
 
 class (Eq k, Finite k) => TypeMap m k | m -> k where
   lookup :: k -> m v -> Maybe v
@@ -105,7 +105,7 @@ class TypeMap m k => TypeMapPartial m k | m -> k where
 
   {-# MINIMAL empty, alter #-}
 
--- =
+-- total function
 
 instance (Eq k, Finite k) => TypeMap ((->) k) k where
   lookup k m = Just (m k)
@@ -123,6 +123,8 @@ instance (Eq k, Finite k) => TypeMap ((->) k) k where
 instance (Eq k, Finite k) => TypeMapTotal ((->) k) k where
   build = id
   get = flip ($)
+
+-- partial function from total function
 
 newtype FnPartial k v = FnPartial { getFn :: k -> Maybe v }
 
@@ -142,6 +144,8 @@ instance (Eq k, Finite k) => TypeMap (FnPartial k) k where
 instance (Eq k, Finite k) => TypeMapPartial (FnPartial k) k where
   empty = FnPartial (const Nothing)
   alter f k (FnPartial m) = FnPartial (\k' -> if k == k' then f (m k) else m k)
+
+-- partial generic from total generic
 
 newtype MkPartial m k v = MkPartial { getPartial :: m k (Maybe v) }
 pmap :: (m k (Maybe u) -> m k (Maybe v)) -> (MkPartial m k u -> MkPartial m k v)
@@ -177,3 +181,41 @@ instance TypeMapTotal (m k) k => TypeMapPartial (MkPartial m k) k where
   alter f = pmap . replaceWith f
   findWithDefault v k = maybe v id . get k . getPartial
   member k = maybe False (const True) . get k . getPartial
+
+-- binary tree map
+
+instance (Ord k, Finite k) => TypeMap (MS.Map k) k where
+  lookup = MS.lookup
+  assocs = MS.toList
+  replace = MS.insert
+  replaceWith = MS.update . (Just .)
+  map = MS.map
+  mapWithKey = MS.mapWithKey
+  mapAccum = MS.mapAccum
+  mapAccumWithKey = MS.mapAccumWithKey
+  mapAccumRWithKey = MS.mapAccumRWithKey
+  mapAccumWithKeyBy ks f z m = foldl' f' (z, empty) ks
+    where f' (z, m') k = maybe (z, m') (fmap (flip (replace k) m') . f z k) (m !? k)
+
+instance (Ord k, Finite k) => TypeMapPartial (MS.Map k) k where
+  empty = MS.empty
+  singleton = MS.singleton
+  fromAssocs = MS.fromList
+  fromAssocsWith = MS.fromListWith
+  fromAssocsWithKey = MS.fromListWithKey
+  insert = MS.insert
+  insertWith = MS.insertWith
+  insertWithKey = MS.insertWithKey
+  insertLookupWithKey = MS.insertLookupWithKey
+  delete = MS.delete
+  adjust = MS.adjust
+  update = MS.update
+  updateLookup = MS.updateLookupWithKey . const
+  alter = MS.alter
+  findWithDefault = MS.findWithDefault
+  member = MS.member
+  null = MS.null
+  size = fromIntegral . MS.size
+  union = MS.union
+  unionWithKey = MS.unionWithKey
+  unions = MS.unions
