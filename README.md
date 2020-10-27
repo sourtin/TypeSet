@@ -2,11 +2,17 @@
 
 The purpose of `TypeSet` is to abstract the `Set` data type from its representation, so that `Data.Set` can be readily swapped out for a more efficient or more appropriate implementation when required. For example, if the underlying type is small then a bitset offers a far more efficient and speedy representation. 
 
+Also included is `TypeMap`, an abstraction over `Map` with two subclasses, `TypeMapTotal` for total maps where all keys are defined, and `TypeMapPartial` which better resembles `Map`. `TypeMapTotal`, being array-like, is also extended with a monadic interface in `TypeMap.Mutable` so that it can be used efficiently in procedural algorithms.
+
+We also provide `Fin`, an efficient implementation of modular numbers/finite types.
+
 - [Data.Fin](#datafin): `Fin`
 - [Data.TypeSet](#datatypeset): `TypeSubset(..)`
 - [Data.TypeSet.Theory](#datatypesettheory): `TypeSet(..)`, `Countable(..)`, `Finite`
 - [Data.TypeSet.Cardinality](#datatypesetcardinality): `Cardinal(..)`, `Cardinal'(..)`
 - [Data.TypeSet.Algorithm](#datatypesetalgorithm): ...
+- [Data.TypeMap](#datatypemap): `TypeMap(..)`, `TypeMapPartial(..)`, `TypeMapTotal(..)`, `FnPartial(..)`, `MkPartial(..)`
+- [Data.TypeMap.Mutable](#datatypemapmutable): `MTypeMap(..)`, `MTypeMapTotal(..)`, `TotalArray(getTotalArray)`, `runTotalArray`
 - [Instances](#instances-1): ...
 
 ## Data.Fin
@@ -210,6 +216,116 @@ cantorUnzip :: Natural -> [Natural]
 squareRoot :: Integer -> Integer
 ```
 
+## Data.TypeMap
+
+`TypeMap` is an abstraction over `Map` that also distinguishes between partial maps and total maps (i.e. arrays). We also provide some newtypes for deriving partial TypeMaps from total TypeMaps:
+
+```haskell
+newtype FnPartial k v = FnPartial { getFn :: k -> Maybe v }
+newtype MkPartial m k v = MkPartial { getPartial :: m k (Maybe v) }
+```
+
+### TypeMap
+
+```haskell
+class (Eq k, Countable k) => TypeMap m k | m -> k where
+  lookup :: k -> m v -> Maybe v
+  assocs :: m v -> [(k, v)]
+  replace :: k -> v -> m v -> m v
+  replaceWith :: (v -> v) -> k -> m v -> m v
+  map :: (a -> b) -> (m a -> m b)
+  mapWithKey :: (k -> a -> b) -> (m a -> m b)
+  mapAccum :: (a -> b -> (a, c)) -> a -> (m b -> (a, m c))
+  mapAccumWithKey :: (a -> k -> b -> (a, c)) -> a -> (m b -> (a, m c))
+  mapAccumRWithKey :: (a -> k -> b -> (a, c)) -> a -> (m b -> (a, m c))
+  mapAccumWithKeyBy :: [k] -> (a -> k -> b -> (a, c)) -> a -> (m b -> (a, m c))
+
+  {-# MINIMAL lookup, mapAccumWithKeyBy #-}
+```
+
+### TypeMapTotal
+
+```haskell
+class (Finite k, TypeMap m k) => TypeMapTotal m k | m -> k where
+  build :: (k -> v) -> m v
+  get :: k -> m v -> v
+
+  {-# MINIMAL build #-}
+
+(!) :: TypeMapTotal m k => k -> m v -> v
+(!) = get
+```
+
+### TypeMapPartial
+
+```haskell
+class TypeMap m k => TypeMapPartial m k | m -> k where
+  empty :: m v
+  singleton :: k -> v -> m v
+  fromAssocs :: [(k, v)] -> m v
+  fromAssocsWith :: (v -> v -> v) -> [(k, v)] -> m v
+  fromAssocsWithKey :: (k -> v -> v -> v) -> [(k, v)] -> m v
+  insert :: k -> v -> m v -> m v
+  insertWith :: (v -> v -> v) -> k -> v -> m v -> m v
+  insertWithKey :: (k -> v -> v -> v) -> k -> v -> m v -> m v
+  insertLookupWithKey :: (k -> v -> v -> v) -> k -> v -> m v -> (Maybe v, m v)
+  delete :: k -> m v -> m v
+  adjust :: (v -> v) -> k -> m v -> m v
+  update :: (v -> Maybe v) -> k -> m v -> m v
+  updateLookup :: (v -> Maybe v) -> k -> m v -> (Maybe v, m v)
+  alter :: (Maybe v -> Maybe v) -> k -> m v -> m v
+  findWithDefault :: v -> k -> m v -> v
+  member :: k -> m v -> Bool
+  null :: m v -> Bool
+  size :: m v -> Natural
+  union :: m v -> m v -> m v
+  unionWithKey :: (k -> v -> v -> v) -> (m v -> m v -> m v)
+  unions :: [m v] -> m v
+  unionsWithKey :: (k -> v -> v -> v) -> ([m v] -> m v)
+
+  {-# MINIMAL empty, alter #-}
+
+(!?) :: TypeMapPartial m k => m v -> k -> Maybe v
+(!?) = flip Data.TypeMap.lookup
+```
+
+## Data.TypeMap.Mutable
+
+A monadic interface to the same operations as for `TypeMapTotal`. In principle we could do the same for `TypeMapPartial`, but this is not yet implemented. For `STArrays` over `Finite` types, we provide `TotalArray`:
+
+```haskell
+newtype TotalArray s k v = MkTotalArray { getTotalArray :: AS.STArray s Natural v }
+runTotalArray :: (Finite k, AM.Ix k) => (forall s. ST s (TotalArray s k v)) -> A.Array k v
+```
+
+### MTypeMap
+
+```haskell
+class (Eq k, Countable k, Monad mo) => MTypeMap m k mo | m -> k where
+  lookup :: k -> m v -> mo (Maybe v)
+  assocs :: m v -> mo [(k, v)]
+  replace :: k -> v -> m v -> mo ()
+  replaceWith :: (v -> v) -> k -> m v -> mo ()
+  map :: (a -> b) -> m a -> mo (m b)
+  mapWithKey :: (k -> a -> b) -> m a -> mo (m b)
+  mapAccum :: (a -> b -> (a, c)) -> a -> m b -> mo (a, m c)
+  mapAccumWithKey :: (a -> k -> b -> (a, c)) -> a -> m b -> mo (a, m c)
+  mapAccumRWithKey :: (a -> k -> b -> (a, c)) -> a -> m b -> mo (a, m c)
+  mapAccumWithKeyBy :: [k] -> (a -> k -> b -> (a, c)) -> a -> m b -> mo (a, m c)
+
+  {-# MINIMAL lookup, mapAccumWithKeyBy #-}
+```
+
+### MTypeMapTotal
+
+```haskell
+class (Finite k, MTypeMap m k mo) => MTypeMapTotal m k mo | m -> k where
+  build :: (k -> v) -> mo (m v)
+  get :: m v -> k -> mo v
+
+  {-# MINIMAL build #-}
+```
+
 ## Instances
 
 ```haskell
@@ -304,4 +420,20 @@ instance (Finite a, Finite b, Finite c, Finite d, Finite e) => Finite (a, b, c, 
 instance (Eq a, Ord a, Countable a) => TypeSubset (Set a) a
 instance (Eq u, Finite u) => TypeSubset (u -> Bool) u
 instance (Eq a, Countable a, Num b, Enum b, Bits b, BitSettable a b) => TypeSubset (BitSet' b a) a
+```
+
+```haskell
+instance (Eq k, Finite k) => TypeMap ((->) k) k
+instance (Eq k, Finite k) => TypeMapTotal ((->) k) k
+instance (Eq k, Finite k) => TypeMap (FnPartial k) k
+instance (Eq k, Finite k) => TypeMapPartial (FnPartial k) k
+instance TypeMapTotal (m k) k => TypeMap (MkPartial m k) k
+instance TypeMapTotal (m k) k => TypeMapPartial (MkPartial m k) k
+instance (Ord k, Finite k) => TypeMap (Data.Map.Strict.Map k) k
+instance (Ord k, Finite k) => TypeMapPartial (Data.Map.Strict.Map k) k
+```
+
+```haskell
+instance (Eq k, Finite k) => MTypeMap (TotalArray s k) k (ST s)
+instance (Eq k, Finite k) => MTypeMapTotal (TotalArray s k) k (ST s)
 ```

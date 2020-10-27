@@ -25,7 +25,6 @@ import Control.Monad.ST (ST, runST)
 import GHC.Arr (unsafeFreezeSTArray)
 import Data.TypeSet.Cardinality (Cardinal(CardFin))
 import Data.TypeSet.Theory (cardinality, Countable(..), Finite)
-import Data.TypeMap ()
 
 class (Eq k, Countable k, Monad mo) => MTypeMap m k mo | m -> k where
   lookup :: k -> m v -> mo (Maybe v)
