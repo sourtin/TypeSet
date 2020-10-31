@@ -263,8 +263,8 @@ class (Finite k, TypeMap m k) => TypeMapTotal m k | m -> k where
 
   {-# MINIMAL build #-}
 
-(!) :: TypeMapTotal m k => k -> m v -> v
-(!) = get
+(!) :: TypeMapTotal m k => m v -> k -> v
+(!) = flip get
 ```
 
 ### TypeMapPartial
