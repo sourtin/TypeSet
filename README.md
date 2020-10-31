@@ -245,6 +245,11 @@ class (Eq k, Countable k) => TypeMap m k | m -> k where
   mapAccumWithKey :: (a -> k -> b -> (a, c)) -> a -> (m b -> (a, m c))
   mapAccumRWithKey :: (a -> k -> b -> (a, c)) -> a -> (m b -> (a, m c))
   mapAccumWithKeyBy :: [k] -> (a -> k -> b -> (a, c)) -> a -> (m b -> (a, m c))
+  foldr :: (b -> a -> a) -> a -> (m b -> a)
+  foldl :: (a -> b -> a) -> a -> (m b -> a)
+  foldrWithKey :: (k -> b -> a -> a) -> a -> (m b -> a)
+  foldlWithKey :: (a -> k -> b -> a) -> a -> (m b -> a)
+  foldWithKeyBy :: [k] -> (k -> b -> a -> a) -> a -> (m b -> a)
 
   {-# MINIMAL lookup, mapAccumWithKeyBy #-}
 ```
@@ -319,6 +324,11 @@ class (Eq k, Countable k, Monad mo) => MTypeMap m k mo | m -> k where
   mapAccumWithKey :: (a -> k -> b -> (a, c)) -> a -> m b -> mo (a, m c)
   mapAccumRWithKey :: (a -> k -> b -> (a, c)) -> a -> m b -> mo (a, m c)
   mapAccumWithKeyBy :: [k] -> (a -> k -> b -> (a, c)) -> a -> m b -> mo (a, m c)
+  foldr :: (b -> a -> a) -> a -> m b -> mo a
+  foldl :: (a -> b -> a) -> a -> m b -> mo a
+  foldrWithKey :: (k -> b -> a -> a) -> a -> m b -> mo a
+  foldlWithKey :: (a -> k -> b -> a) -> a -> m b -> mo a
+  foldWithKeyBy :: [k] -> (k -> b -> a -> a) -> a -> m b -> mo a
 
   {-# MINIMAL lookup, mapAccumWithKeyBy #-}
 ```

@@ -124,15 +124,6 @@ instance (Eq k, Finite k) => MTypeMap (TotalArrayST s k) k (ST s) where
                         AM.getElems . getTotalArrayST
   foldlWithKey f acc = (Prelude.foldl (uncurry . f) acc . zip enumerate <$>) .
                         AM.getElems . getTotalArrayST
-
-  -- foldrWithKey f acc =
-  --   (Prelude.foldr (\(i, v) -> f (fromNatural' i) v) acc <$>) .
-  --     AM.getAssocs . getTotalArrayST
-
-  -- foldlWithKey f acc =
-  --   (Prelude.foldl (\a (i, v) -> f a (fromNatural' i) v) acc <$>) .
-  --     AM.getAssocs . getTotalArrayST
-
   foldWithKeyBy ks f acc (MkTotalArrayST m) =
     foldM (\a k -> flip (f k) a <$> AM.readArray m (toNatural k)) acc ks
 
