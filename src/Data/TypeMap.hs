@@ -48,6 +48,11 @@ class (Eq k, Countable k) => TypeMap m k | m -> k where
   mapAccumWithKey :: (a -> k -> b -> (a, c)) -> a -> (m b -> (a, m c))
   mapAccumRWithKey :: (a -> k -> b -> (a, c)) -> a -> (m b -> (a, m c))
   mapAccumWithKeyBy :: [k] -> (a -> k -> b -> (a, c)) -> a -> (m b -> (a, m c))
+  foldr :: (b -> a -> a) -> a -> (m b -> a)
+  foldl :: (a -> b -> a) -> a -> (m b -> a)
+  foldrWithKey :: (k -> b -> a -> a) -> a -> (m b -> a)
+  foldlWithKey :: (a -> k -> b -> a) -> a -> (m b -> a)
+  foldWithKeyBy :: [k] -> (k -> b -> a -> a) -> a -> (m b -> a)
 
   assocs = catMaybes . flip Prelude.map enumerate . go
     where go m k = (k,) <$> Data.TypeMap.lookup k m
@@ -58,6 +63,11 @@ class (Eq k, Countable k) => TypeMap m k | m -> k where
   mapAccum = mapAccumWithKey . flip . const
   mapAccumWithKey = mapAccumWithKeyBy enumerate
   mapAccumRWithKey = mapAccumWithKeyBy (reverse enumerate)
+  foldr = foldrWithKey . const
+  foldl = foldlWithKey . (const .)
+  foldrWithKey = foldWithKeyBy enumerate
+  foldlWithKey f = foldWithKeyBy (reverse enumerate) (\k b a -> f a k b)
+  foldWithKeyBy ks f a = fst . mapAccumWithKeyBy ks (\a k b -> (f k b a, b)) a
 
   {-# MINIMAL lookup, mapAccumWithKeyBy #-}
 
@@ -207,6 +217,12 @@ instance (Ord k, Finite k) => TypeMap (MS.Map k) k where
   mapAccumRWithKey = MS.mapAccumRWithKey
   mapAccumWithKeyBy ks f z m = foldl' f' (z, empty) ks
     where f' (z, m') k = maybe (z, m') (fmap (flip (replace k) m') . f z k) (m !? k)
+  foldr = MS.foldr
+  foldl = MS.foldl
+  foldrWithKey = MS.foldrWithKey
+  foldlWithKey = MS.foldlWithKey
+  foldWithKeyBy ks f z m = foldl' f' z ks
+    where f' z k = maybe z (flip (f k) z) (m !? k)
 
 instance (Ord k, Finite k) => TypeMapPartial (MS.Map k) k where
   empty = MS.empty
@@ -251,7 +267,7 @@ instance (Eq k, Finite k) => TypeMap (TotalArray k) k where
           go (z,xs) (k,v) = let (z',x) = f z k v in (z',x:xs)
   mapAccumRWithKey f acc (MkTotalArray m) =
       MkTotalArray . A.listArray (0,n-1) <$>
-        foldr go (acc,[]) (zip enumerate $ A.elems m)
+        Prelude.foldr go (acc,[]) (zip enumerate $ A.elems m)
     where CardFin n = cardinality (Proxy :: Proxy k)
           go (k,v) (z,xs) = let (z',x) = f z k v in (z',x:xs)
 
@@ -266,6 +282,15 @@ instance (Eq k, Finite k) => TypeMap (TotalArray k) k where
         let i = toNatural k
             (a', v') = f a k (m A.! i)
         in AM.writeArray m' i v' >> return a'
+
+  foldr f acc = Prelude.foldr f acc . A.elems . getTotalArray
+  foldl f acc = Prelude.foldl f acc . A.elems . getTotalArray
+  foldrWithKey f acc =
+    Prelude.foldr ($) acc . zipWith f enumerate . A.elems . getTotalArray
+  foldlWithKey f acc =
+    Prelude.foldl (uncurry . f) acc . zip enumerate . A.elems . getTotalArray
+  foldWithKeyBy ks f acc (MkTotalArray m) =
+    Prelude.foldr (\k -> f k (m A.! toNatural k)) acc ks
 
 instance (Eq k, Finite k) => TypeMapTotal (TotalArray k) k where
   build f = MkTotalArray $ A.listArray (0, n-1) (Prelude.map f enumerate)
