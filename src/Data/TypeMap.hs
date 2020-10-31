@@ -30,8 +30,8 @@ import Data.TypeSet.Theory (cardinality, Countable(..), Finite)
 import Data.TypeMap.Internal
 
 infixl 9 !
-(!) :: TypeMapTotal m k => k -> m v -> v
-(!) = get
+(!) :: TypeMapTotal m k => m v -> k -> v
+(!) = flip get
 
 infixl 9 !?
 (!?) :: TypeMapPartial m k => m v -> k -> Maybe v
