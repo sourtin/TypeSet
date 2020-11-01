@@ -12,6 +12,7 @@ module Data.TypeMap
 , FnPartial(..)
 , MkPartial(..)
 , TotalArray(getTotalArray)
+, TotalMap(getTotalMap)
 ) where
 
 import Data.Proxy (Proxy(Proxy))
@@ -246,6 +247,32 @@ instance (Ord k, Finite k) => TypeMapPartial (MS.Map k) k where
   union = MS.union
   unionWithKey = MS.unionWithKey
   unions = MS.unions
+
+-- Map restricted to total operations
+
+tmmap f = MkTotalMap . f . getTotalMap
+tmmap' f = fmap MkTotalMap . f . getTotalMap
+
+instance (Ord k, Finite k) => TypeMap (TotalMap k) k where
+  lookup k = Data.TypeMap.lookup k . getTotalMap
+  assocs = assocs . getTotalMap
+  replace k = tmmap . replace k
+  replaceWith f = tmmap . replaceWith f
+  map = tmmap . Data.TypeMap.map
+  mapWithKey = tmmap . mapWithKey
+  mapAccum f = tmmap' . mapAccum f
+  mapAccumWithKey f = tmmap' . mapAccumWithKey f
+  mapAccumRWithKey f = tmmap' . mapAccumRWithKey f
+  mapAccumWithKeyBy ks f = tmmap' . mapAccumWithKeyBy ks f
+  foldr f z = Data.TypeMap.foldr f z . getTotalMap
+  foldl f z = Data.TypeMap.foldl f z . getTotalMap
+  foldrWithKey f z = foldrWithKey f z . getTotalMap
+  foldlWithKey f z = foldlWithKey f z . getTotalMap
+  foldWithKeyBy ks f z = foldWithKeyBy ks f z . getTotalMap
+
+instance (Ord k, Finite k) => TypeMapTotal (TotalMap k) k where
+  build f = MkTotalMap . MS.fromList $ Prelude.map (\k -> (k, f k)) enumerate
+  get k (MkTotalMap m) = m MS.! k
 
 -- immutable arrays
 

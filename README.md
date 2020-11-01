@@ -11,8 +11,8 @@ We also provide `Fin`, an efficient implementation of modular numbers/finite typ
 - [Data.TypeSet.Theory](#datatypesettheory): `TypeSet(..)`, `Countable(..)`, `Finite`
 - [Data.TypeSet.Cardinality](#datatypesetcardinality): `Cardinal(..)`, `Cardinal'(..)`
 - [Data.TypeSet.Algorithm](#datatypesetalgorithm): ...
-- [Data.TypeMap](#datatypemap): `TypeMap(..)`, `TypeMapPartial(..)`, `TypeMapTotal(..)`, `FnPartial(..)`, `MkPartial(..)`
-- [Data.TypeMap.Mutable](#datatypemapmutable): `MTypeMap(..)`, `MTypeMapTotal(..)`, `TotalArray(getTotalArray)`, `runTotalArray`
+- [Data.TypeMap](#datatypemap): `TypeMap(..)`, `TypeMapPartial(..)`, `TypeMapTotal(..)`, `FnPartial(..)`, `MkPartial(..)`, `TotalArray(getTotalArray)`, `TotalMap(getTotalMap)`
+- [Data.TypeMap.Mutable](#datatypemapmutable): `MTypeMap(..)`, `MTypeMapTotal(..)`, `runTotalArray`
 - [Instances](#instances-1): ...
 
 ## Data.Fin
@@ -225,11 +225,14 @@ newtype FnPartial k v = FnPartial { getFn :: k -> Maybe v }
 newtype MkPartial m k v = MkPartial { getPartial :: m k (Maybe v) }
 ```
 
-And a newtype for guaranteeing an array is total (i.e. its keys cover the entire range of the type):
+And newtypes for guaranteeing an array or map is total (i.e. its keys cover the entire range of the type):
 
 ```haskell
 newtype TotalArray k v = MkTotalArray { getTotalArray :: Array Natural v }
+newtype TotalMap k v = MkTotalMap { getTotalMap :: Data.Map.Strict.Map k v }
 ```
+
+This totality restriction is achieved by hiding the constructor to prevent the end user from erroneously constructing a partial mapping. Instead, the user must make use of the `TypeMap` and `TypeMapTotal` typeclasses to manipulate the underlying mappings.
 
 ### TypeMap
 
@@ -448,6 +451,8 @@ instance TypeMapTotal (m k) k => TypeMap (MkPartial m k) k
 instance TypeMapTotal (m k) k => TypeMapPartial (MkPartial m k) k
 instance (Ord k, Finite k) => TypeMap (Data.Map.Strict.Map k) k
 instance (Ord k, Finite k) => TypeMapPartial (Data.Map.Strict.Map k) k
+instance (Eq k, Finite k) => TypeMap (TotalMap k) k
+instance (Eq k, Finite k) => TypeMapTotal (TotalMap k) k
 instance (Eq k, Finite k) => TypeMap (TotalArray k) k
 instance (Eq k, Finite k) => TypeMapTotal (TotalArray k) k
 ```
