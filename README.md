@@ -343,8 +343,8 @@ class (Eq k, Countable k, Monad mo) => MTypeMap m k mo | m -> k where
   foldrWithKey :: (k -> b -> a -> a) -> a -> m b -> mo a
   foldlWithKey :: (a -> k -> b -> a) -> a -> m b -> mo a
   foldWithKeyBy :: [k] -> (k -> b -> a -> a) -> a -> m b -> mo a
-  foldMWithKey f a m = assocs m >>= foldM (uncurry . f) a
-  iterateWithKey f = foldMWithKey (const f) ()
+  foldMWithKey :: (a -> k -> b -> mo a) -> a -> m b -> mo a
+  iterateWithKey :: (k -> b -> mo ()) -> m b -> mo ()
 
   {-# MINIMAL lookup, mapAccumWithKeyBy #-}
 ```
