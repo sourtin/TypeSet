@@ -45,6 +45,8 @@ class (Eq k, Countable k, Monad mo) => MTypeMap m k mo | m -> k where
   foldrWithKey :: (k -> b -> a -> a) -> a -> m b -> mo a
   foldlWithKey :: (a -> k -> b -> a) -> a -> m b -> mo a
   foldWithKeyBy :: [k] -> (k -> b -> a -> a) -> a -> m b -> mo a
+  foldMWithKey :: (a -> k -> b -> mo a) -> a -> m b -> mo a
+  iterateWithKey :: (k -> b -> mo ()) -> m b -> mo ()
 
   assocs m = catMaybes <$> mapM go enumerate
     where go k = fmap (k,) <$> Data.TypeMap.Mutable.lookup k m
@@ -60,14 +62,20 @@ class (Eq k, Countable k, Monad mo) => MTypeMap m k mo | m -> k where
   foldrWithKey = foldWithKeyBy enumerate
   foldlWithKey f = foldWithKeyBy (reverse enumerate) (\k b a -> f a k b)
   foldWithKeyBy ks f a = fmap fst . mapAccumWithKeyBy ks (\a k b -> (f k b a, b)) a
+  foldMWithKey f a m = assocs m >>= foldM (uncurry . f) a
+  iterateWithKey f = foldMWithKey (const f) ()
 
   {-# MINIMAL lookup, mapAccumWithKeyBy #-}
 
 class (Finite k, MTypeMap m k mo) => MTypeMapTotal m k mo | m -> k where
   build :: (k -> v) -> mo (m v)
   get :: m v -> k -> mo v
+  mergeIntoWithKey :: (k -> v -> v -> v) -> m v -> m v -> mo ()
+  mergesIntoWithKey :: (k -> v -> v -> v) -> m v -> [m v] -> mo ()
 
   get m k = (\(Just x) -> x) <$> Data.TypeMap.Mutable.lookup k m
+  mergeIntoWithKey f m m' = iterateWithKey (\k v' -> replaceWith (\v -> f k v v') k m) m'
+  mergesIntoWithKey f = mapM_ . mergeIntoWithKey f
 
   {-# MINIMAL build #-}
 

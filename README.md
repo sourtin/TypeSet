@@ -263,6 +263,8 @@ class (Eq k, Countable k) => TypeMap m k | m -> k where
 class (Finite k, TypeMap m k) => TypeMapTotal m k | m -> k where
   build :: (k -> v) -> m v
   get :: k -> m v -> v
+  mergeWithKey :: (k -> v -> v -> v) -> (m v -> m v -> m v)
+  mergesWithKey :: (k -> v -> v -> v) -> (m v -> [m v] -> m v)
 
   {-# MINIMAL build #-}
 
@@ -332,6 +334,8 @@ class (Eq k, Countable k, Monad mo) => MTypeMap m k mo | m -> k where
   foldrWithKey :: (k -> b -> a -> a) -> a -> m b -> mo a
   foldlWithKey :: (a -> k -> b -> a) -> a -> m b -> mo a
   foldWithKeyBy :: [k] -> (k -> b -> a -> a) -> a -> m b -> mo a
+  foldMWithKey f a m = assocs m >>= foldM (uncurry . f) a
+  iterateWithKey f = foldMWithKey (const f) ()
 
   {-# MINIMAL lookup, mapAccumWithKeyBy #-}
 ```
@@ -342,6 +346,8 @@ class (Eq k, Countable k, Monad mo) => MTypeMap m k mo | m -> k where
 class (Finite k, MTypeMap m k mo) => MTypeMapTotal m k mo | m -> k where
   build :: (k -> v) -> mo (m v)
   get :: m v -> k -> mo v
+  mergeIntoWithKey :: (k -> v -> v -> v) -> m v -> m v -> mo ()
+  mergesIntoWithKey :: (k -> v -> v -> v) -> m v -> [m v] -> mo ()
 
   {-# MINIMAL build #-}
 ```
