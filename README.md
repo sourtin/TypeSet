@@ -263,7 +263,9 @@ class (Eq k, Countable k) => TypeMap m k | m -> k where
 class (Finite k, TypeMap m k) => TypeMapTotal m k | m -> k where
   build :: (k -> v) -> m v
   get :: k -> m v -> v
+  mergeWith :: (v -> v -> v) -> (m v -> m v -> m v)
   mergeWithKey :: (k -> v -> v -> v) -> (m v -> m v -> m v)
+  mergesWith :: (v -> v -> v) -> (m v -> [m v] -> m v)
   mergesWithKey :: (k -> v -> v -> v) -> (m v -> [m v] -> m v)
 
   {-# MINIMAL build #-}
@@ -346,7 +348,9 @@ class (Eq k, Countable k, Monad mo) => MTypeMap m k mo | m -> k where
 class (Finite k, MTypeMap m k mo) => MTypeMapTotal m k mo | m -> k where
   build :: (k -> v) -> mo (m v)
   get :: m v -> k -> mo v
+  mergeIntoWith :: (v -> v -> v) -> m v -> m v -> mo ()
   mergeIntoWithKey :: (k -> v -> v -> v) -> m v -> m v -> mo ()
+  mergesIntoWith :: (v -> v -> v) -> m v -> [m v] -> mo ()
   mergesIntoWithKey :: (k -> v -> v -> v) -> m v -> [m v] -> mo ()
 
   {-# MINIMAL build #-}

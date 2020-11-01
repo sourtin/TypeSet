@@ -75,11 +75,15 @@ class (Eq k, Countable k) => TypeMap m k | m -> k where
 class (Finite k, TypeMap m k) => TypeMapTotal m k | m -> k where
   build :: (k -> v) -> m v
   get :: k -> m v -> v
+  mergeWith :: (v -> v -> v) -> (m v -> m v -> m v)
   mergeWithKey :: (k -> v -> v -> v) -> (m v -> m v -> m v)
+  mergesWith :: (v -> v -> v) -> (m v -> [m v] -> m v)
   mergesWithKey :: (k -> v -> v -> v) -> (m v -> [m v] -> m v)
 
   get k = (\(Just x) -> x) . Data.TypeMap.lookup k
+  mergeWith = mergeWithKey . const
   mergeWithKey f m = mapWithKey (\k -> f k (m ! k))
+  mergesWith = foldl' . mergeWith
   mergesWithKey = foldl' . mergeWithKey
 
   {-# MINIMAL build #-}
@@ -149,6 +153,7 @@ instance (Eq k, Finite k) => TypeMap ((->) k) k where
 instance (Eq k, Finite k) => TypeMapTotal ((->) k) k where
   build = id
   get = flip ($)
+  mergeWith f g h k = f (g k) (h k)
   mergeWithKey f g h k = (f k) (g k) (h k)
 
 -- partial function from total function
@@ -278,7 +283,10 @@ instance (Ord k, Finite k) => TypeMap (TotalMap k) k where
 instance (Ord k, Finite k) => TypeMapTotal (TotalMap k) k where
   build f = MkTotalMap . MS.fromList $ Prelude.map (\k -> (k, f k)) enumerate
   get k (MkTotalMap m) = m MS.! k
-  mergeWithKey f (MkTotalMap m) (MkTotalMap m') = MkTotalMap (unionWithKey f m m')
+  mergeWith f (MkTotalMap m) (MkTotalMap m') = MkTotalMap (MS.unionWith f m m')
+  mergeWithKey f (MkTotalMap m) (MkTotalMap m') = MkTotalMap (MS.unionWithKey f m m')
+  mergesWith f (MkTotalMap m) = MkTotalMap . MS.unionsWith f . (m :) . Prelude.map getTotalMap
+  mergesWithKey f (MkTotalMap m) = MkTotalMap . unionsWithKey f . (m :) . Prelude.map getTotalMap
 
 -- immutable arrays
 
@@ -329,6 +337,7 @@ instance (Eq k, Finite k) => TypeMapTotal (TotalArray k) k where
   build f = MkTotalArray $ A.listArray (0, n-1) (Prelude.map f enumerate)
     where CardFin n = cardinality (Proxy :: Proxy k)
   get k (MkTotalArray m) = m A.! (toNatural k)
+  mergeWith f (MkTotalArray m) = amap $ A.accum f m . A.assocs
   mergeWithKey f (MkTotalArray m) (MkTotalArray m') =
     let pepperedAssocs = zipWith (fmap . (,)) enumerate (A.assocs m')
     in MkTotalArray $ A.accum (\v (k,v') -> f k v v') m pepperedAssocs

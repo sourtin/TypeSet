@@ -70,11 +70,15 @@ class (Eq k, Countable k, Monad mo) => MTypeMap m k mo | m -> k where
 class (Finite k, MTypeMap m k mo) => MTypeMapTotal m k mo | m -> k where
   build :: (k -> v) -> mo (m v)
   get :: m v -> k -> mo v
+  mergeIntoWith :: (v -> v -> v) -> m v -> m v -> mo ()
   mergeIntoWithKey :: (k -> v -> v -> v) -> m v -> m v -> mo ()
+  mergesIntoWith :: (v -> v -> v) -> m v -> [m v] -> mo ()
   mergesIntoWithKey :: (k -> v -> v -> v) -> m v -> [m v] -> mo ()
 
   get m k = (\(Just x) -> x) <$> Data.TypeMap.Mutable.lookup k m
+  mergeIntoWith = mergeIntoWithKey . const
   mergeIntoWithKey f m m' = iterateWithKey (\k v' -> replaceWith (\v -> f k v v') k m) m'
+  mergesIntoWith f = mapM_ . mergeIntoWith f
   mergesIntoWithKey f = mapM_ . mergeIntoWithKey f
 
   {-# MINIMAL build #-}
