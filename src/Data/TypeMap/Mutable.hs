@@ -13,6 +13,7 @@ module Data.TypeMap.Mutable
   -- don't export constructor to guarantee totality
 , runTotalArray
 , thawTotalArray
+, thaw, freeze
 ) where
 
 import Data.Proxy (Proxy(Proxy))
@@ -22,12 +23,20 @@ import Data.Foldable (foldl')
 import qualified Data.Array as A
 import qualified Data.Array.ST as AS
 import qualified Data.Array.MArray as AM
+import qualified Data.Map.Strict as MS
 import Control.Monad (void, foldM)
 import Control.Monad.ST (ST, runST)
 import GHC.Arr (unsafeFreezeSTArray)
 import Data.TypeSet.Cardinality (Cardinal(CardFin))
 import Data.TypeSet.Theory (cardinality, Countable(..), Finite)
 import Data.TypeMap.Internal
+import qualified Data.TypeMap as TM
+
+thaw :: (TM.TypeMapTotal m k, MTypeMapTotal m' k mo) => m v -> mo (m' v)
+thaw = build . (TM.!)
+
+freeze :: (Ord k, TM.TypeMapTotal m k, MTypeMapTotal m' k mo) => m' v -> mo (m v)
+freeze = fmap (TM.build . (MS.!) . MS.fromList) . assocs
 
 class (Eq k, Countable k, Monad mo) => MTypeMap m k mo | m -> k where
   lookup :: k -> m v -> mo (Maybe v)

@@ -317,6 +317,13 @@ runTotalArray :: Finite k => (forall s. ST s (TotalArrayST s k v)) -> A.Array k 
 thawTotalArray :: Finite k => TotalArray k v -> ST s (TotalArrayST s k v)
 ```
 
+We also prevent the coercion functions:
+
+```haskell
+thaw :: (TM.TypeMapTotal m k, MTypeMapTotal m' k mo) => m v -> mo (m' v)
+freeze :: (Ord k, TM.TypeMapTotal m k, MTypeMapTotal m' k mo) => m' v -> mo (m v)
+```
+
 ### MTypeMap
 
 ```haskell
